@@ -4894,6 +4894,10 @@ void triangulation_init(void)
 
 TbBool triangulate_area(unsigned char *imap, long start_x, long start_y, long end_x, long end_y)
 {
+    // Commenting out rewritten code:
+
+    /*
+    printf("triangulate_area args:\n imap: %u \n start_x: %ld \n start_y: %ld \n end_x: %ld \n end_y: %ld", imap, start_x, start_y, end_x, end_y);
     TbBool one_tile,not_whole_map;
     long colour;
     unsigned char ccolour;
@@ -4903,7 +4907,21 @@ TbBool triangulate_area(unsigned char *imap, long start_x, long start_y, long en
     r = true;
     LastTriangulatedMap = imap;
     NAVIDBG(9,"Area from (%03ld,%03ld) to (%03ld,%03ld) with %04ld triangles",start_x,start_y,end_x,end_y,count_Triangles);
-    //_DK_triangulate_area(imap, start_x, start_y, end_x, end_y); return true;
+    */
+
+    // The following line was commented out, and everything after them was not commented out. Doing the inverse on this commit.
+
+    // Returning early, to skip _DK_triangulate_area for now just to show that this removes the crash/hang/freeze
+    // The following line does not belong here and was added only for proof-of-concept,
+    // and should be removed once the issue with _DK_triangulate_area is fixed.
+    return true;
+    // the following (important) function never gets called because the line above just returns true and exits triangulate_area.
+    // Whatever the following function is doing with the parameter values being passed to it is causing the pathfinding crash/hang/freeze.
+    _DK_triangulate_area(imap, start_x, start_y, end_x, end_y); return true;
+
+    // Commenting out rewritten code:
+
+    /*
     // Switch coords to make end_x larger than start_x
     if (end_x < start_x)
     {
@@ -4932,23 +4950,37 @@ TbBool triangulate_area(unsigned char *imap, long start_x, long start_y, long en
         not_whole_map = 0;
         start_x = 0;
         end_x = 256;
+        printf("start_y");
         start_y = 0;
+        printf("end_y");
         end_y = 256;
     }
+    printf("triangulation_unit");
     triangulation_init();
+    printf("if not_whole_map");
     if ( not_whole_map )
     {
+        printf("border_clip_horizontal");
         r &= border_clip_horizontal(imap, start_x, end_x, start_y, 0);
+        printf("border_clip_horizontal");
         r &= border_clip_horizontal(imap, start_x, end_x, end_y, -1);
+        printf("border_clip_vertical");
         r &= border_clip_vertical(imap, start_x, -1, start_y, end_y);
+        printf("border_clip_vertical");
         r &= border_clip_vertical(imap, end_x, 0, start_y, end_y);
+        printf("border_lock");
         r &= border_lock(start_x, start_y, end_x, end_y);
+        printf("if not one_tile");
         if ( !one_tile ) {
+            printf("border_internal_points_delete");
             border_internal_points_delete(start_x, start_y, end_x, end_y);
         }
+        printf("else");
     } else
     {
+        printf("triangulation_initxy");
         triangulation_initxy(-256, -256, 512, 512);
+        printf("tri_set_rectangle");
         tri_set_rectangle(start_x, start_y, end_x, end_y, 0);
     }
     colour = -1;
@@ -4990,6 +5022,7 @@ TbBool triangulate_area(unsigned char *imap, long start_x, long start_y, long en
     triangulation_border_init();
     NAVIDBG(9,"Done");
     return r;
+    */
 }
 /******************************************************************************/
 #ifdef __cplusplus
