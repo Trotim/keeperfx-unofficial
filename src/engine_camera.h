@@ -35,8 +35,10 @@ struct EngineCol;
 struct PlayerInfo;
 
 // Camera constants; max zoom is when everything is large
-#define CAMERA_ZOOM_MIN     4100
-#define CAMERA_ZOOM_MAX    12000
+//#define CAMERA_ZOOM_MIN     4100
+#define CAMERA_ZOOM_MIN     2050
+//#define CAMERA_ZOOM_MAX    12000
+#define CAMERA_ZOOM_MAX    24000
 #define MINMAX_LENGTH         64
 
 enum CameraIndexValues {

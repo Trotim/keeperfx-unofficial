@@ -318,9 +318,15 @@ unsigned long scale_camera_zoom_to_screen(unsigned long zoom_lvl)
     // Currently, the side menu isn't scaled. We have to take that into account. Side menu takes approx 0.22 of the screen.
     // Note that this is temporary - it would be better to scale the side menu. Not to mention making larger rendering arrays.
     if (units_per_pixel+units_per_pixel_min > 35) // this means resolution over 800x600
-        size_wide += size_wide>>3;
+    {
+        //size_wide += size_wide>>3;
+        size_wide = 2 * (size_wide>>3);
+    }
     if (units_per_pixel+units_per_pixel_min > 55) // this means resolution over 1200x1024
-        size_wide += size_wide>>4;
+    {
+        //size_wide += size_wide>>4;
+        size_wide = 2 * (size_wide>>4);
+    }
     return  ((zoom_lvl*size_wide) >> 8) + ((zoom_lvl*size_narr) >> 8);
 }
 
@@ -400,7 +406,8 @@ void init_player_cameras(struct PlayerInfo *player)
     cam->orient_b = -266;
     cam->orient_a = LbFPMath_PI/4;
     cam->view_mode = PVM_IsometricView;
-    cam->zoom = 10000;
+    //cam->zoom = 10000;
+    cam->zoom = 4100;
 
     cam = &player->cameras[CamIV_Parchment];
     cam->mappos.x.val = 0;
@@ -415,6 +422,7 @@ void init_player_cameras(struct PlayerInfo *player)
     cam->mappos.z.val = 32;
     cam->field_13 = 188;
     cam->view_mode = PVM_FrontView;
-    cam->zoom = 65536;
+    //cam->zoom = 65536;
+    cam->zoom = 4100;
 }
 /******************************************************************************/
