@@ -452,7 +452,8 @@ long navigation_rule_normal(long treeA, long treeB)
 long init_navigation(void)
 {
     IanMap = (unsigned char *)&game.navigation_map;
-    //return _DK_init_navigation();
+    return _DK_init_navigation();
+
     init_navigation_map();
     triangulate_map(IanMap);
     nav_rulesA2B = navigation_rule_normal;
@@ -464,7 +465,8 @@ long update_navigation_triangulation(long start_x, long start_y, long end_x, lon
 {
     long sx,sy,ex,ey;
     long x,y;
-    //return _DK_update_navigation_triangulation(start_x, start_y, end_x, end_y);
+    return _DK_update_navigation_triangulation(start_x, start_y, end_x, end_y);
+
     if (!nav_map_initialised)
         init_navigation_map();
     // Prepare parameter bounds
@@ -497,7 +499,8 @@ long update_navigation_triangulation(long start_x, long start_y, long end_x, lon
 
 void edge_points8(long ntri_src, long ntri_dst, long *tipA_x, long *tipA_y, long *tipB_x, long *tipB_y)
 {
-    //_DK_edge_points8(a1, a2, a3, a4, a5, a6);
+    _DK_edge_points8(ntri_src, ntri_dst, tipA_x, tipA_y, tipB_x, tipB_y);
+
     struct Point *pt;
     if (Triangles[ntri_src].tags[0] == ntri_dst)
     {
@@ -552,7 +555,7 @@ long fov_region(long a1, long a2, const struct FOV *fov)
 long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long ptstart_y, const long *route, long wp_lim, struct Path *path, long *total_len)
 {
     NAVIDBG(19,"Starting");
-    //return _DK_route_to_path(ptfind_x, ptfind_y, ptstart_x, ptstart_y, route, wp_lim, path, total_len);
+    return _DK_route_to_path(ptfind_x, ptfind_y, ptstart_x, ptstart_y, route, wp_lim, path, total_len);
 
     struct FOV fov_AC;
     long edge1_x, edge1_y;
@@ -670,7 +673,8 @@ long route_to_path(long ptfind_x, long ptfind_y, long ptstart_x, long ptstart_y,
 
 void waypoint_normal(long tri1_id, long cor1_id, long *norm_x, long *norm_y)
 {
-    //_DK_waypoint_normal(a1, a2, norm_x, norm_y);
+    _DK_waypoint_normal(tri1_id, cor1_id, norm_x, norm_y);
+
     int tri2_id, tri3_id;
     int cor2_id, cor3_id;
     tri3_id = tri1_id;
@@ -765,7 +769,8 @@ void path_out_a_bit(struct Path *path, const long *route)
     long prev_pt,curr_pt;
     long link_fwd,link_bak;
     long i;
-    //_DK_path_out_a_bit(path, route); return;
+    _DK_path_out_a_bit(path, route); return;
+
     wpoint = &wayPoints.wpfield_10[0];
     ppoint = &path->waypoints[0];
     for (i=0; i < path->waypoints_num-1; i++)
@@ -797,7 +802,8 @@ void path_out_a_bit(struct Path *path, const long *route)
 
 void cull_gate_to_point(struct Gate *gt, long a2)
 {
-    //_DK_cull_gate_to_point(gt, a2);
+    _DK_cull_gate_to_point(gt, a2);
+
     int diff_a, diff_b;
     diff_a = abs(gt->field_0 - gt->field_8);
     diff_b = abs(gt->field_4 - gt->field_C);
@@ -852,7 +858,8 @@ void cull_gate_to_point(struct Gate *gt, long a2)
 
 long calc_intersection(struct Gate *gt, long a2, long a3, long a4, long a5)
 {
-    //return _DK_calc_intersection(gt, a2, a3, a4, a5);
+    return _DK_calc_intersection(gt, a2, a3, a4, a5);
+
     int diff_a, diff_b, diff_c, diff_d, diff_e, diff_f;
     diff_a = (gt->field_0 - a2) << 6;
     diff_b = (a3 - a5) << 6;
@@ -907,7 +914,8 @@ long calc_intersection(struct Gate *gt, long a2, long a3, long a4, long a5)
 
 void cull_gate_to_best_point(struct Gate *gt, long a2)
 {
-    //_DK_cull_gate_to_best_point(gt, a2);
+    _DK_cull_gate_to_best_point(gt, a2);
+
     int diff_min1, diff_min2;
     {
         int diff_x, diff_y;
@@ -1045,7 +1053,7 @@ void cull_gate_to_best_point(struct Gate *gt, long a2)
 
 long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, long *a5, long a6, struct Pathway *pway, long a8)
 {
-    //return _DK_gate_route_to_coords(trAx, trAy, trBx, trBy, a5, a6, pway, a8);
+    return _DK_gate_route_to_coords(trAx, trAy, trBx, trBy, a5, a6, pway, a8);
 
     long total_len;
     best_path.waypoints_num = route_to_path(trAx, trAy, trBx, trBy, a5, a6, &best_path, &total_len);
@@ -1239,7 +1247,8 @@ long gate_route_to_coords(long trAx, long trAy, long trBx, long trBy, long *a5, 
 
 void gate_navigator_init8(struct Pathway *pway, long trAx, long trAy, long trBx, long trBy, long wp_lim, unsigned char a7)
 {
-    //_DK_gate_navigator_init8(pway, trAx, trAy, trBx, trBy, a6, a7);
+    _DK_gate_navigator_init8(pway, trAx, trAy, trBx, trBy, wp_lim, a7);
+
     pway->field_0 = trAx;
     pway->field_4 = trAy;
     pway->field_8 = trBx;
@@ -4906,7 +4915,8 @@ void triangulation_border_init(void)
 void triangulation_initxy(long startx, long starty, long endx, long endy)
 {
     long i;
-    //_DK_triangulation_initxy(startx, starty, endx, endy);return;
+    _DK_triangulation_initxy(startx, starty, endx, endy); return;
+
     for (i=0; i < TRIANLGLES_COUNT; i++)
     {
         struct Triangle *tri;
@@ -4942,7 +4952,11 @@ TbBool triangulate_area(unsigned char *imap, long start_x, long start_y, long en
     r = true;
     LastTriangulatedMap = imap;
     NAVIDBG(9,"Area from (%03ld,%03ld) to (%03ld,%03ld) with %04ld triangles",start_x,start_y,end_x,end_y,count_Triangles);
-    //_DK_triangulate_area(imap, start_x, start_y, end_x, end_y); return true;
+
+    JUSTMSG("***Area from (%03ld,%03ld) to (%03ld,%03ld) with %04ld triangles",start_x,start_y,end_x,end_y,count_Triangles);
+
+    _DK_triangulate_area(imap, start_x, start_y, end_x, end_y); return true;
+
     // Switch coords to make end_x larger than start_x
     if (end_x < start_x)
     {
