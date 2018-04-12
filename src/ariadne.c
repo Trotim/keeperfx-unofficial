@@ -1277,7 +1277,8 @@ void route_through_gates(const struct Pathway *pway, struct Path *path, long sub
     const struct Gate *ppoint;
     struct PathWayPoint *wpoint;
     long i;
-    //_DK_route_through_gates(pway, path, mag); return;
+    _DK_route_through_gates(pway, path, mag); return;
+
     if (subroute > 16383)
         subroute = 16383;
     if (subroute < 0)
@@ -3727,7 +3728,8 @@ TbBool delete_point(long pt_tri, long pt_cor)
 long tri_split3(long btri_id, long pt_x, long pt_y)
 {
     NAVIDBG(19,"Starting");
-    //_DK_tri_split3(a1, a2, a3);
+    _DK_tri_split3(btri_id, pt_x, pt_y);
+
     struct Triangle *btri;
     struct Triangle *tri1;
     struct Triangle *tri2;

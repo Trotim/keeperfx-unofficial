@@ -240,7 +240,7 @@ void delaunay_stack_point(long pt_x, long pt_y)
     long dst_tri_idx,dst_cor_idx;
     long tri_id2, i;
     NAVIDBG(19,"Starting");
-    //_DK_delaunay_stack_point(pt_x, pt_y); return;
+    _DK_delaunay_stack_point(pt_x, pt_y); return;
 
     tri_idx = triangle_find8(pt_x << 8, pt_y << 8);
     if (tri_idx == -1) {
@@ -289,7 +289,8 @@ void delaunay_stack_point(long pt_x, long pt_y)
 
 long optimise_heuristic(long tri_id1, long tri_id2)
 {
-    //return _DK_optimise_heuristic(tri_id1, tri_id2);
+    return _DK_optimise_heuristic(tri_id1, tri_id2);
+
     struct Triangle *tri1;
     struct Triangle *tri3;
     struct Point *pt;
@@ -339,7 +340,8 @@ long delaunay_seeded(long start_x, long start_y, long end_x, long end_y)
     long tri_id2,cor_id2;
     long count;
     NAVIDBG(19,"Starting");
-    //return _DK_delaunay_seeded(start_x, start_y, end_x, end_y);
+    return _DK_delaunay_seeded(start_x, start_y, end_x, end_y);
+
     tags_init();
     delaunay_init();
     delaunay_stack_point(start_x, start_y);

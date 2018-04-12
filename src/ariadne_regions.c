@@ -176,7 +176,8 @@ void region_lnk(int nreg)
 
 void region_connect(unsigned long tree_reg)
 {
-    //_DK_region_connect(tree_reg); return;
+    _DK_region_connect(tree_reg); return;
+
     long nreg_id;
     nreg_id = region_alloc();
     Regions[nreg_id].field_2 = 1;
@@ -235,7 +236,8 @@ TbBool regions_connected(long tree_reg1, long tree_reg2)
 {
     long reg_id1,reg_id2;
     unsigned long intersect;
-    //return _DK_regions_connected(tree_reg1, tree_reg2);
+    return _DK_regions_connected(tree_reg1, tree_reg2);
+
     if ((tree_reg1 < 0) || (tree_reg1 >= TRIANLGLES_COUNT))
         return false;
     if ((tree_reg2 < 0) || (tree_reg2 >= TRIANLGLES_COUNT))
