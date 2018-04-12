@@ -4848,7 +4848,8 @@ long get_navigation_colour_for_cube(long stl_x, long stl_y)
 long get_navigation_colour(long stl_x, long stl_y)
 {
     struct Map *mapblk;
-    //return _DK_get_navigation_colour(stl_x, stl_y);
+    return _DK_get_navigation_colour(stl_x, stl_y);
+
     mapblk = get_map_block_at(stl_x, stl_y);
     if ((mapblk->flags & SlbAtFlg_IsDoor) != 0)
     {
