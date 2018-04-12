@@ -255,7 +255,8 @@ void edgelen_set(long tri_id)
 
 long edge_rotateAC(long tri1_id, long cor1_id)
 {
-    //return _DK_edge_rotateAC(tri1_id, cor1_id);
+    return _DK_edge_rotateAC(tri1_id, cor1_id);
+
     long tri2_id;
     tri2_id = Triangles[tri1_id].tags[cor1_id];
     if (tri2_id == -1) {
