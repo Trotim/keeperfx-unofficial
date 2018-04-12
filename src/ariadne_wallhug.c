@@ -1121,7 +1121,7 @@ TbBool is_valid_hug_subtile(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
 long dig_to_position(PlayerNumber plyr_idx, MapSubtlCoord basestl_x, MapSubtlCoord basestl_y, int direction_around, TbBool revside)
 {
     long i,round_idx,round_change;
-    return _DK_dig_to_position(a1, a2, a3, start_side, revside);
+    return _DK_dig_to_position(plyr_idx, basestl_x, basestl_y, direction_around, revside);
 
     SYNCDBG(14,"Starting for subtile (%d,%d)",(int)basestl_x,(int)basestl_y);
     if (revside) {

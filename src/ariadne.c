@@ -1277,7 +1277,7 @@ void route_through_gates(const struct Pathway *pway, struct Path *path, long sub
     const struct Gate *ppoint;
     struct PathWayPoint *wpoint;
     long i;
-    _DK_route_through_gates(pway, path, mag); return;
+    _DK_route_through_gates(pway, path, subroute); return;
 
     if (subroute > 16383)
         subroute = 16383;
