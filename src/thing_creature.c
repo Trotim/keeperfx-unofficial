@@ -2583,7 +2583,7 @@ TbBool kill_creature(struct Thing *creatng, struct Thing *killertng,
         if ((get_creature_model_flags(creatng) & CMF_IsSpecDigger)) {
             output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
         } 
-        if (!(get_creature_model_flags(creatng) & CMF_IsSpecDigger)) {
+        else {
             output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
         }
     } else
