@@ -149,6 +149,7 @@ enum TbSpeechMessages {
         SMsg_SenceAvatar,     //'I sense the presence of the Avatar'
         SMsg_AvatarBodyVanish,
         SMsg_GameFinalVictory,
+		SMsg_ImpDefeat,
 /*
         SMsg_TreasrRoomTooSmall =   24,
         SMsg_TreasrUnreachable  =   35,
@@ -161,8 +162,8 @@ enum TbSpeechMessages {
         SMsg_ConqueredRealm     =  106,*/
 };
 #define SMsg_FunnyMessages      SMsg_FullOfPies  // Starts a list of 10 funny quotes
-#define SMsg_EnemyHarassments  110  // Starts a list of harassments
-#define SMsg_EnemyLordQuote    118  // Starts a list of lord of the land quotes
+#define SMsg_EnemyHarassments  111  // Starts a list of harassments
+#define SMsg_EnemyLordQuote    119  // Starts a list of lord of the land quotes
 
 // Define empty messages, which may be used later
 #define SMsg_NoRouteToPrison SMsg_None

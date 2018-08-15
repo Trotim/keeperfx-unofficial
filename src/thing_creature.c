@@ -2581,7 +2581,7 @@ TbBool kill_creature(struct Thing *creatng, struct Thing *killertng,
     }
     if (is_my_player_number(creatng->owner)) {
         if ((get_creature_model_flags(creatng) & CMF_IsSpecDigger)) {
-            output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
+            output_message(SMsg_ImpDefeat, MESSAGE_DELAY_BATTLE, true);
         } 
         else {
             output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
