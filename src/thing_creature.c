@@ -2580,7 +2580,12 @@ TbBool kill_creature(struct Thing *creatng, struct Thing *killertng,
         cctrlgrp->kills_num++;
     }
     if (is_my_player_number(creatng->owner)) {
-        output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
+        if ((get_creature_model_flags(creatng) & CMF_IsSpecDigger)) {
+            output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
+        } 
+        if (!(get_creature_model_flags(creatng) & CMF_IsSpecDigger)) {
+            output_message(SMsg_BattleDeath, MESSAGE_DELAY_BATTLE, true);
+        }
     } else
     if (is_my_player_number(killertng->owner)) {
         output_message(SMsg_BattleWon, MESSAGE_DELAY_BATTLE, true);
