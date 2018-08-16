@@ -332,6 +332,7 @@ static TbBool any_digger_is_digging_indestructible_valuables(struct Dungeon *dun
  */
 static int count_faces_of_indestructible_valuables_marked_for_dig(struct Dungeon *dungeon)
 {
+    JUSTMSG(">>Counting gem faces.");
     int num_faces;
     num_faces = 0;
     struct MapTask* mtask;
@@ -410,6 +411,7 @@ long player_list_creature_filter_best_for_sacrifice(const struct Thing *thing, M
 
 static struct Thing *find_creature_for_sacrifice(struct Computer2 *comp, ThingModel crmodel)
 {
+    JUSTMSG(">>Looking for creature to sacrifice");
 	struct Dungeon *dungeon;
     dungeon = comp->dungeon;
 
@@ -443,6 +445,7 @@ static struct Thing *find_creature_for_sacrifice(struct Computer2 *comp, ThingMo
  */
 long computer_check_sacrifice_for_cheap_diggers(struct Computer2 *comp, struct ComputerCheck * check)
 {
+    JUSTMSG(">Checking for cheap diggers sacrifice");
     struct Dungeon *dungeon;
     SYNCDBG(8,"Starting");
     dungeon = comp->dungeon;
@@ -457,6 +460,8 @@ long computer_check_sacrifice_for_cheap_diggers(struct Computer2 *comp, struct C
     GoldAmount power_price, lowest_price;
 	power_price = compute_power_price(dungeon->owner, PwrK_MKDIGGER, 0);
 	lowest_price = compute_lowest_power_price(dungeon->owner, PwrK_MKDIGGER, 0);
+	JUSTMSG("--> power_price  = %ld", power_price);
+	JUSTMSG("--> lowest_price = %ld", lowest_price);
 	SYNCDBG(18, "Digger creation power price: %d, lowest: %d", power_price, lowest_price);
 
 	if ((power_price > lowest_price) && !is_task_in_progress_using_hand(comp)
@@ -493,6 +498,7 @@ long computer_check_sacrifice_for_cheap_diggers(struct Computer2 *comp, struct C
  */
 long computer_check_no_imps(struct Computer2 *comp, struct ComputerCheck * check)
 {
+    JUSTMSG(">Checking for enough imps...");
     // TODO COMPUTER_PLAYER create a separate check for imps sacrificing diggers
     if (computer_check_sacrifice_for_cheap_diggers(comp, check) == CTaskRet_Unk1) {
         return CTaskRet_Unk1;
@@ -505,6 +511,7 @@ long computer_check_no_imps(struct Computer2 *comp, struct ComputerCheck * check
     }
     long controlled_diggers;
     controlled_diggers = dungeon->num_active_diggers - count_player_diggers_not_counting_to_total(dungeon->owner);
+    JUSTMSG("-> Active imps: %ld", controlled_diggers);
     int preferred_imps, minimal_imps;
     // Compute additional imps from gem faces
     preferred_imps = minimal_imps = check->param3 * count_faces_of_indestructible_valuables_marked_for_dig(dungeon);
@@ -516,6 +523,7 @@ long computer_check_no_imps(struct Computer2 *comp, struct ComputerCheck * check
     // Add the base limits
     preferred_imps += check->param1;
     minimal_imps += check->param2;
+    JUSTMSG("-> Preferred imps: %ld", preferred_imps);
     SYNCDBG(8,"Starting for player %d, digger amounts minimal=%d preferred=%d controlled=%d",(int)dungeon->owner,(int)minimal_imps,(int)preferred_imps,(int)controlled_diggers);
     if (controlled_diggers >= preferred_imps) {
         return CTaskRet_Unk4;
@@ -532,6 +540,7 @@ long computer_check_no_imps(struct Computer2 *comp, struct ComputerCheck * check
         // We have less than preferred amount, but higher than minimal; allow building if we've got spare money
         able_to_use_power = computer_able_to_use_power(comp, PwrK_MKDIGGER, 0, 3 + (controlled_diggers - minimal_imps)/4);
     }
+    JUSTMSG("-> Able to spawn imps: %u", able_to_use_power);
     if (able_to_use_power)
     {
         struct Thing *heartng;
@@ -548,6 +557,7 @@ long computer_check_no_imps(struct Computer2 *comp, struct ComputerCheck * check
                 crdata = creature_data_get(get_players_special_digger_model(dungeon->owner));
                 message_add_fmt(comp->dungeon->owner, "My %s count is only %d, casting %s!",get_string(crdata->namestr_idx),(int)controlled_diggers,get_string(powerst->name_stridx));
             }
+            JUSTMSG("-> Trying to spawn an imp");
             if (try_game_action(comp, dungeon->owner, GA_UseMkDigger, 0, stl_x, stl_y, 1, 1) > Lb_OK) {
                 return CTaskRet_Unk1;
             }

@@ -2115,6 +2115,7 @@ long count_player_creatures_not_counting_to_total(PlayerNumber plyr_idx)
  */
 long count_player_diggers_not_counting_to_total(PlayerNumber plyr_idx)
 {
+    JUSTMSG(">>Counting imps");
     return count_player_list_creatures_of_model_matching_bool_filter(plyr_idx, -3, creature_is_kept_in_custody_by_enemy_or_dying);
 }
 
