@@ -824,15 +824,21 @@ long instf_reinforce(struct Thing *creatng, long *param)
     {
         cctrl->digger.byte_93++;
 
-        // Trying out alternate fortifying sounds
-        int DOOR_OPEN_SOUND = 91; // set pitch to .50
-        int PLACE_DOOR_SOUND = 117; // set pitch to .50 or .40
-        int TUNNELER_DIG_SOUND = 70; // set pitch to .50 or 2
-        int BOULDER_ROLL_SOUND = 35; // set pitch to .50
+        // Trying out alternate fortifying sounds.
+        int IMP_DIG_SOUND = 63;
+        int DOOR_OPEN_SOUND = 91; // if used, set pitch to .50
+        int PLACE_DOOR_SOUND = 117; // if used, set pitch to .50 or 2
+        int TUNNELER_DIG_SOUND = 70; // if used, set pitch to .50 or 2
+        int BOULDER_ROLL_SOUND = 35; // if used, set pitch to .50
+        int TEMPLE_PRAYERS_SOUND = 837;// if used, set pitch to 2 or more (imp muttering spell)
 
-        int FORTIFY_SOUND = DOOR_OPEN_SOUND; // change to others above
-        int FORTIFY_SOUND_PITCH = NORMAL_PITCH * .50; // alter pitch/speed
-        int FORTIFY_VOLUME = 128; // might want this halved, or just set to zero for no volume
+        // Alter only the following line (and pitch percent on the next line if needed)
+        // to try different sounds.
+        // Replace TUNNELER_DIG_SOUND with other sound names defined above.
+        int FORTIFY_SOUND = TUNNELER_DIG_SOUND; // change to others above
+        int FORTIFY_SOUND_PITCH = NORMAL_PITCH * .50; // alter pitch/speed to above suggested pitches
+
+        int FORTIFY_VOLUME = 128; // Can be set to zero for silence.
 
         if (!S3DEmitterIsPlayingSample(creatng->snd_emitter_id, FORTIFY_SOUND, 0)) {
             // fortifying sound using door open sound at 50% normal pitch/speed to make it different
