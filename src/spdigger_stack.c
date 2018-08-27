@@ -1327,7 +1327,7 @@ long add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dunge
  * @param max_tasks Max amount of tasks to be added.
  * @return The amount of tasks added.
  */
-int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
+int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks, struct Thing *creatng)
 {
     if (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) {
         WARNLOG("Too many jobs, no place for more");
@@ -1349,7 +1349,11 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks)
     slbopt = scratch;
     slblist = (struct SlabCoord *)(scratch + map_tiles_x*map_tiles_y);
     add_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
+    // Add tasks connected to the heart, which are given priority
     add_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &heartng->mappos, &remain_num);
+    // Add (prettying) tasks connected to each imp,
+    // which will only be assigned if jobs connected to heart don't exceed maximum jobs allowed.
+    add_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &creatng->mappos, &remain_num);
     SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
     return (max_tasks-remain_num);
 }
@@ -2412,13 +2416,14 @@ TbBool imp_stack_update(struct Thing *creatng)
     add_unclaimed_dead_bodies_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/4 - 1);
     add_unclaimed_spells_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/4 - 1);
     add_empty_traps_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/6);
-	add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64);
+    // Use imp position to look for tasks as well as from the dungeon heart
+	add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
     add_undug_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/16 - 1);
 	add_unclaimed_gold_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64);
 	add_gems_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
 	add_unclaimed_traps_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/4);
 	add_undug_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
-    add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
+    add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8, creatng);
     add_unclaimed_gold_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/3);
     add_reinforce_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT);
     return true;

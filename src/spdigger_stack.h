@@ -96,7 +96,7 @@ TbBool add_object_for_trap_to_imp_stack(struct Dungeon *dungeon, struct Thing *t
 void setup_imp_stack(struct Dungeon *dungeon);
 int add_undug_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
 int add_gems_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
-int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
+int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks, struct Thing *creatng);
 int add_unclaimed_gold_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
 int add_unclaimed_unconscious_bodies_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
 int add_unclaimed_dead_bodies_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
