@@ -1349,10 +1349,9 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks, 
     slbopt = scratch;
     slblist = (struct SlabCoord *)(scratch + map_tiles_x*map_tiles_y);
     add_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
-    // Add tasks connected to the heart, which are given priority
-    add_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &heartng->mappos, &remain_num);
-    // Add (prettying) tasks connected to each imp,
-    // which will only be assigned if jobs connected to heart don't exceed maximum jobs allowed.
+    // Add claiming and fortifying jobs accessible from where the imp is,
+    // rather than from the dungeon heart as previously. This includes isolated areas you drop them into.
+    // "Home isn't necessarily where the Heart is." ~ Wall art decor hanging in every thinking Keeper's kitchen.
     add_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &creatng->mappos, &remain_num);
     SYNCDBG(8,"Done, added %d tasks",(int)(max_tasks-remain_num));
     return (max_tasks-remain_num);
