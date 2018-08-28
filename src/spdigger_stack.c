@@ -1320,6 +1320,134 @@ long add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dunge
     return slblipos;
 }
 
+void add_one_pretty_and_convert_to_imp_stack_prepare(struct Dungeon *dungeon, unsigned char *slbopt)
+{
+    MapSlabCoord slb_x, slb_y;
+    // Clear our slab options array and mark tall slabs with SlbCAOpt_Border
+    for (slb_y=0; slb_y < map_tiles_y; slb_y++)
+    {
+        for (slb_x=0; slb_x < map_tiles_x; slb_x++)
+        {
+            SlabCodedCoords slb_num;
+            struct SlabMap *slb;
+            slb_num = get_slab_number(slb_x, slb_y);
+            slb = get_slabmap_direct(slb_num);
+            struct SlabAttr *slbattr;
+            slbattr = get_slab_attrs(slb);
+            slbopt[slb_num] = 0;
+            if ((slbattr->block_flags & (SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) {
+                slbopt[slb_num] |= SlbCAOpt_Border;
+            }
+        }
+    }
+}
+
+
+long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dungeon, unsigned char *slbopt, struct SlabCoord *slblist, const struct Coord3d * start_pos, int *remain_num)
+{
+    unsigned int slblicount;
+    unsigned int slblipos;
+    MapSlabCoord slb_x, slb_y;
+    slblipos = 0; // Current position in our list of slabs which should be checked around
+    slblicount = 0; // Amount of items in our list of slabs which should be checked around
+    MapSlabCoord base_slb_x, base_slb_y;
+    base_slb_x = subtile_slab(start_pos->x.stl.num);
+    base_slb_y = subtile_slab(start_pos->y.stl.num);
+    SlabCodedCoords slb_num;
+    slb_num = get_slab_number(base_slb_x, base_slb_y);
+    slbopt[slb_num] |= SlbCAOpt_Processed;
+
+    int jobsFound = 0;
+    int perImpJobsCap = 1;
+    // Verify slabs around; we will add more around slabs to checklist as we progress
+    do
+    {
+        unsigned char around_flags;
+        around_flags = 0;
+        long i,n;
+        n = ACTION_RANDOM(4);
+        for (i=0; i < SMALL_AROUND_LENGTH; i++)
+        {
+            slb_x = base_slb_x + (long)small_around[n].delta_x;
+            slb_y = base_slb_y + (long)small_around[n].delta_y;
+            slb_num = get_slab_number(slb_x, slb_y);
+            // Per around code
+            if ((slbopt[slb_num] & SlbCAOpt_Border) != 0)
+            { // Prepare around flags to be used later for ExtraSquares
+                around_flags |= (1<<n);
+            }
+            if ((slbopt[slb_num] & SlbCAOpt_Processed) == 0)
+            {
+                jobsFound++;
+                slbopt[slb_num] |= SlbCAOpt_Processed;
+                // For border wall, check if it can be reinforced
+                if ((slbopt[slb_num] & SlbCAOpt_Border) != 0)
+                {
+                    add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon);
+                } else
+                // If not a border, add it to around verification list and check for pretty
+                {
+                    slblist[slblicount].x = slb_x;
+                    slblist[slblicount].y = slb_y;
+                    slblicount++;
+                    if ((*remain_num) <= 0)
+                    {
+                        // Even if the remain_num reaches zero and we can't add new tasks, we may still
+                        // want to continue the loop if reinforce stack is not filled.
+                        if (r_stackpos >= DIGGER_TASK_MAX_COUNT - dungeon->digger_stack_length) {
+                            return slblipos;
+                        }
+                    } else
+                    {
+                        // The remain_num parameter must go to subfunction - here we don't know if we should decrement it or not
+                        if ( !add_to_pretty_to_imp_stack_if_need_to(slb_x, slb_y, dungeon, remain_num) ) {
+                            SYNCDBG(6,"Cannot add any more pretty tasks");
+                            return slblipos;
+                        }
+                    }
+                }
+            }
+            // Per around code ends
+            n = (n + 1) % SMALL_AROUND_LENGTH;
+        }
+
+        // Check if we can already remove diagonal slabs from verification
+        struct ExtraSquares  *square;
+        for (square = &spdigger_extra_squares[around_flags]; square->index != 0; square = &spdigger_extra_squares[around_flags])
+        {
+            if (around_flags == (0x01|0x02|0x04|0x08))
+            {
+                // If whole diagonal around is to be marked, just do it in one go
+                for (i=1; i < SPDIGGER_EXTRA_POSITIONS_COUNT; i++)
+                {
+                    slb_x = base_slb_x + (long)spdigger_extra_positions[i].delta_x;
+                    slb_y = base_slb_y + (long)spdigger_extra_positions[i].delta_y;
+                    add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon);
+                    slb_num = get_slab_number(slb_x, slb_y);
+                    slbopt[slb_num] |= SlbCAOpt_Processed;
+                }
+                around_flags = 0;
+            } else
+            {
+                i = square->index;
+                {
+                    slb_x = base_slb_x + (long)spdigger_extra_positions[i].delta_x;
+                    slb_y = base_slb_y + (long)spdigger_extra_positions[i].delta_y;
+                    add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon);
+                    slb_num = get_slab_number(slb_x, slb_y);
+                    slbopt[slb_num] |= SlbCAOpt_Processed;
+                }
+                around_flags &= square->flgmask;
+            }
+        }
+        base_slb_x = slblist[slblipos].x;
+        base_slb_y = slblist[slblipos].y;
+        slblipos++;
+    }
+    while (slblipos <= slblicount && jobsFound < perImpJobsCap);
+    return slblipos;
+}
+
 
 /**
  * Adds tasks of claiming unowned and converting enemy land to the digger tasks stack; also fills reinforce tasks.
@@ -2397,6 +2525,78 @@ long check_out_imp_last_did(struct Thing *creatng)
   SYNCDBG(9,"No job found");
   return false;
 }
+
+int add_one_pretty_or_convert_per_imp(struct Dungeon *dungeon, int max_tasks, struct Thing *creatng)
+{
+    int remain_num;
+    remain_num = max_tasks;
+    unsigned long k;
+    int i;
+    const struct StructureList *slist;
+    slist = get_list_for_thing_class(TCls_Object);
+    k = 0;
+    i = slist->index;
+    while (i != 0)
+    {
+        struct Thing *thing;
+        thing = thing_get(i);
+        if (thing_is_invalid(thing))
+        {
+            ERRORLOG("Jump to invalid thing detected");
+            break;
+        }
+        i = thing->next_of_class;
+        // Per-thing code
+        if (!thing_exists(thing) || thing->class_id != TCls_Creature) {
+            break;
+        }
+        if (thing_is_picked_up(thing))
+        {
+            k++;
+            if (k > slist->count)
+            {
+                ERRORLOG("Infinite loop detected when sweeping things list");
+                break;
+            }
+            continue;
+        }
+
+
+
+
+        if (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) {
+            WARNLOG("Too many jobs, no place for more");
+            return 0;
+        }
+        struct Thing *heartng;
+        heartng = get_player_soul_container(dungeon->owner);
+        TRACE_THING(heartng);
+        if (thing_is_invalid(heartng)) {
+            WARNLOG("The player %d has no heart, no dungeon position available",(int)dungeon->owner);
+            return 0;
+        }
+        unsigned char *slbopt;
+        struct SlabCoord *slblist;
+        slbopt = scratch;
+        slblist = (struct SlabCoord *)(scratch + map_tiles_x*map_tiles_y);
+        add_one_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
+        // Add claiming and fortifying jobs accessible from where the imp is,
+        // rather than from the dungeon heart as previously. This includes isolated areas you drop them into.
+        // "Home isn't necessarily where the Heart is." ~ Wall art decor hanging in every thinking Keeper's kitchen.
+        add_one_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &creatng->mappos, &remain_num);
+
+        // Per-thing code ends
+        k++;
+        if (k > slist->count)
+        {
+            ERRORLOG("Infinite loop detected when sweeping things list");
+            break;
+        }
+    }
+    return (max_tasks-remain_num);
+}
+
+
 //Create list of up to 64 tasks. 
 TbBool imp_stack_update(struct Thing *creatng)
 {
@@ -2416,13 +2616,16 @@ TbBool imp_stack_update(struct Thing *creatng)
     add_unclaimed_spells_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/4 - 1);
     add_empty_traps_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/6);
     // Use imp position to look for tasks as well as from the dungeon heart
-	add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
+	//add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
+	add_one_pretty_and_convert_per_imp(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
+
     add_undug_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/16 - 1);
 	add_unclaimed_gold_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64);
 	add_gems_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
 	add_unclaimed_traps_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/4);
 	add_undug_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
-    add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8, creatng);
+    //add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8, creatng);
+	add_one_pretty_and_convert_per_imp(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
     add_unclaimed_gold_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/3);
     add_reinforce_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT);
     return true;
