@@ -1106,11 +1106,20 @@ long add_to_reinforce_stack_if_need_to(long slb_x, long slb_y, struct Dungeon *d
         slb = get_slabmap_block(slb_x, slb_y);
         if (slab_kind_is_friable_dirt(slb->kind))
         {
-            if (subtile_revealed(slab_subtile_center(slb_x), slab_subtile_center(slb_y), dungeon->owner))
+            long slb_x_center = slab_subtile_center(slb_x);
+            long slb_y_center = slab_subtile_center(slb_y);
+            SubtlCodedCoords stl_num;
+            stl_num = get_subtile_number(slb_x_center, slb_y_center);
+            if (subtile_revealed(slb_x_center, slb_y_center, dungeon->owner))
             {
                 if (slab_by_players_land(dungeon->owner, slb_x, slb_y))
                 {
-                    add_to_reinforce_stack(slb_x, slb_y, DigTsk_ReinforceWall);
+                    // don't add the same task at that slab twice (since tasks are being found per imp position)
+                    // using this might slow things down a lot
+                    if (find_in_imp_stack_using_pos(stl_num, DigTsk_ReinforceWall, dungeon) < 0)
+                    {
+                        add_to_reinforce_stack(slb_x_center, slb_y_center, DigTsk_ReinforceWall);
+                    }
                 }
             }
         }
@@ -1124,8 +1133,20 @@ long add_to_pretty_to_imp_stack_if_need_to(long slb_x, long slb_y, struct Dungeo
     MapSubtlCoord stl_x, stl_y;
     stl_x = slab_subtile_center(slb_x);
     stl_y = slab_subtile_center(slb_y);
+
+    SubtlCodedCoords stl_num;
+    stl_num = get_subtile_number(stl_x, stl_y);
+
     const struct SlabMap *slb;
     slb = get_slabmap_block(slb_x, slb_y);
+
+    // don't add the same task at that slab twice (since tasks are being found per imp position)
+    // using this might slow things down a lot
+    if (find_in_imp_stack_using_pos(stl_num, DigTsk_ImproveDungeon, dungeon) >= 0)
+    {
+        return false;
+    }
+
     if (slb->kind == SlbT_PATH)
     {
         if (subtile_revealed(stl_x, stl_y, dungeon->owner) && slab_by_players_land(dungeon->owner, slb_x, slb_y)) {
@@ -1320,29 +1341,6 @@ long add_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dunge
     return slblipos;
 }
 
-void add_one_pretty_and_convert_to_imp_stack_prepare(struct Dungeon *dungeon, unsigned char *slbopt)
-{
-    MapSlabCoord slb_x, slb_y;
-    // Clear our slab options array and mark tall slabs with SlbCAOpt_Border
-    for (slb_y=0; slb_y < map_tiles_y; slb_y++)
-    {
-        for (slb_x=0; slb_x < map_tiles_x; slb_x++)
-        {
-            SlabCodedCoords slb_num;
-            struct SlabMap *slb;
-            slb_num = get_slab_number(slb_x, slb_y);
-            slb = get_slabmap_direct(slb_num);
-            struct SlabAttr *slbattr;
-            slbattr = get_slab_attrs(slb);
-            slbopt[slb_num] = 0;
-            if ((slbattr->block_flags & (SlbAtFlg_Filled|SlbAtFlg_Digable|SlbAtFlg_Valuable)) != 0) {
-                slbopt[slb_num] |= SlbCAOpt_Border;
-            }
-        }
-    }
-}
-
-
 long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dungeon, unsigned char *slbopt, struct SlabCoord *slblist, const struct Coord3d * start_pos, int *remain_num)
 {
     unsigned int slblicount;
@@ -1357,11 +1355,13 @@ long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *d
     slb_num = get_slab_number(base_slb_x, base_slb_y);
     slbopt[slb_num] |= SlbCAOpt_Processed;
 
-    int jobsFound = 0;
-    int perImpJobsCap = 1;
+    //long jobsFound = 0;
+    // max number of jobs to add to stack per imp at this moment
+    //long perImpJobsCap = 1000;
     // Verify slabs around; we will add more around slabs to checklist as we progress
     do
     {
+        //JUSTMSG("jobsFound: %d", jobsFound);
         unsigned char around_flags;
         around_flags = 0;
         long i,n;
@@ -1378,12 +1378,15 @@ long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *d
             }
             if ((slbopt[slb_num] & SlbCAOpt_Processed) == 0)
             {
-                jobsFound++;
                 slbopt[slb_num] |= SlbCAOpt_Processed;
                 // For border wall, check if it can be reinforced
                 if ((slbopt[slb_num] & SlbCAOpt_Border) != 0)
                 {
-                    add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon);
+                    if (add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon))
+                    {
+                        //jobsFound++;
+                    }
+
                 } else
                 // If not a border, add it to around verification list and check for pretty
                 {
@@ -1400,9 +1403,14 @@ long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *d
                     } else
                     {
                         // The remain_num parameter must go to subfunction - here we don't know if we should decrement it or not
-                        if ( !add_to_pretty_to_imp_stack_if_need_to(slb_x, slb_y, dungeon, remain_num) ) {
+                        if (!add_to_pretty_to_imp_stack_if_need_to(slb_x, slb_y, dungeon, remain_num))
+                        {
                             SYNCDBG(6,"Cannot add any more pretty tasks");
                             return slblipos;
+                        }
+                        else
+                        {
+                            //jobsFound++;
                         }
                     }
                 }
@@ -1422,7 +1430,10 @@ long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *d
                 {
                     slb_x = base_slb_x + (long)spdigger_extra_positions[i].delta_x;
                     slb_y = base_slb_y + (long)spdigger_extra_positions[i].delta_y;
-                    add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon);
+                    if (add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon))
+                    {
+                        //jobsFound++;
+                    }
                     slb_num = get_slab_number(slb_x, slb_y);
                     slbopt[slb_num] |= SlbCAOpt_Processed;
                 }
@@ -1433,7 +1444,10 @@ long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *d
                 {
                     slb_x = base_slb_x + (long)spdigger_extra_positions[i].delta_x;
                     slb_y = base_slb_y + (long)spdigger_extra_positions[i].delta_y;
-                    add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon);
+                    if (add_to_reinforce_stack_if_need_to(slb_x, slb_y, dungeon))
+                    {
+                        //jobsFound++;
+                    }
                     slb_num = get_slab_number(slb_x, slb_y);
                     slbopt[slb_num] |= SlbCAOpt_Processed;
                 }
@@ -1444,7 +1458,8 @@ long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *d
         base_slb_y = slblist[slblipos].y;
         slblipos++;
     }
-    while (slblipos <= slblicount && jobsFound < perImpJobsCap);
+    //while (slblipos <= slblicount && jobsFound < perImpJobsCap);
+    while (slblipos <= slblicount);
     return slblipos;
 }
 
@@ -1462,6 +1477,7 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks, 
         return 0;
     }
     SYNCDBG(18,"Starting");
+    /** No longer using heart to start looking for tasks, but imps.
     //TODO SPDIGGER This restricts convert tasks to the area connected to heart, instead of connected to diggers.
     struct Thing *heartng;
     heartng = get_player_soul_container(dungeon->owner);
@@ -1470,6 +1486,7 @@ int add_pretty_and_convert_to_imp_stack(struct Dungeon *dungeon, int max_tasks, 
         WARNLOG("The player %d has no heart, no dungeon position available",(int)dungeon->owner);
         return 0;
     }
+    */
     int remain_num;
     remain_num = max_tasks;
     unsigned char *slbopt;
@@ -2149,7 +2166,9 @@ long check_place_to_dig_and_get_position(struct Thing *thing, SubtlCodedCoords s
     place_x = stl_num_decode_x(stl_num);
     place_y = stl_num_decode_y(stl_num);
     if (!block_has_diggable_side(thing->owner, subtile_slab_fast(place_x), subtile_slab_fast(place_y)))
+    {
         return 0;
+    }
 	nstart = get_nearest_small_around_side_of_slab(subtile_coord_center(place_x), subtile_coord_center(place_y), thing->mappos.x.val, thing->mappos.y.val);
     place_slb = get_slabmap_for_subtile(place_x,place_y);
     n = nstart;
@@ -2533,58 +2552,57 @@ int add_one_pretty_or_convert_per_imp(struct Dungeon *dungeon, int max_tasks, st
     unsigned long k;
     int i;
     const struct StructureList *slist;
-    slist = get_list_for_thing_class(TCls_Object);
+    slist = get_list_for_thing_class(TCls_Creature);
     k = 0;
     i = slist->index;
+
+    unsigned char *slbopt;
+    slbopt = scratch;
+    add_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
+
     while (i != 0)
     {
         struct Thing *thing;
         thing = thing_get(i);
+        i = thing->next_of_class;
         if (thing_is_invalid(thing))
         {
             ERRORLOG("Jump to invalid thing detected");
             break;
         }
-        i = thing->next_of_class;
-        // Per-thing code
-        if (!thing_exists(thing) || thing->class_id != TCls_Creature) {
-            break;
-        }
-        if (thing_is_picked_up(thing))
+        //JUSTMSG("i: %d", i);
+        //JUSTMSG("model name: %s", thing_model_name(thing));
+        //JUSTMSG("owner: %d", (int)thing->owner);
+        if (!thing_exists(thing)
+            || strcmp(thing_model_name(thing), "creature IMP") != 0
+            || thing->owner != creatng->owner
+            || thing_is_picked_up(thing))
         {
+            //i--;
+            //if (i == 0) return max_tasks - remain_num;
             k++;
             if (k > slist->count)
             {
                 ERRORLOG("Infinite loop detected when sweeping things list");
                 break;
             }
+
             continue;
         }
-
-
-
-
         if (dungeon->digger_stack_length >= DIGGER_TASK_MAX_COUNT) {
             WARNLOG("Too many jobs, no place for more");
             return 0;
         }
-        struct Thing *heartng;
-        heartng = get_player_soul_container(dungeon->owner);
-        TRACE_THING(heartng);
-        if (thing_is_invalid(heartng)) {
-            WARNLOG("The player %d has no heart, no dungeon position available",(int)dungeon->owner);
-            return 0;
-        }
-        unsigned char *slbopt;
+        //unsigned char *slbopt;
         struct SlabCoord *slblist;
-        slbopt = scratch;
         slblist = (struct SlabCoord *)(scratch + map_tiles_x*map_tiles_y);
-        add_one_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
+        //slbopt = scratch;
+        //add_pretty_and_convert_to_imp_stack_prepare(dungeon, slbopt);
+
         // Add claiming and fortifying jobs accessible from where the imp is,
         // rather than from the dungeon heart as previously. This includes isolated areas you drop them into.
         // "Home isn't necessarily where the Heart is." ~ Wall art decor hanging in every thinking Keeper's kitchen.
-        add_one_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &creatng->mappos, &remain_num);
-
+        add_one_pretty_and_convert_to_imp_stack_starting_from_pos(dungeon, slbopt, slblist, &thing->mappos, &remain_num);
         // Per-thing code ends
         k++;
         if (k > slist->count)
@@ -2593,7 +2611,7 @@ int add_one_pretty_or_convert_per_imp(struct Dungeon *dungeon, int max_tasks, st
             break;
         }
     }
-    return (max_tasks-remain_num);
+    return (max_tasks - remain_num);
 }
 
 
@@ -2617,7 +2635,7 @@ TbBool imp_stack_update(struct Thing *creatng)
     add_empty_traps_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/6);
     // Use imp position to look for tasks as well as from the dungeon heart
 	//add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
-	add_one_pretty_and_convert_per_imp(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
+	add_one_pretty_or_convert_per_imp(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
 
     add_undug_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/16 - 1);
 	add_unclaimed_gold_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/64);
@@ -2625,7 +2643,7 @@ TbBool imp_stack_update(struct Thing *creatng)
 	add_unclaimed_traps_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/4);
 	add_undug_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8);
     //add_pretty_and_convert_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT*5/8, creatng);
-	add_one_pretty_and_convert_per_imp(dungeon, DIGGER_TASK_MAX_COUNT/64, creatng);
+	add_one_pretty_or_convert_per_imp(dungeon, DIGGER_TASK_MAX_COUNT*5/8, creatng);
     add_unclaimed_gold_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT/3);
     add_reinforce_to_imp_stack(dungeon, DIGGER_TASK_MAX_COUNT);
     return true;

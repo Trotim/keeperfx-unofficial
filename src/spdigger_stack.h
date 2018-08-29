@@ -104,6 +104,9 @@ int add_unclaimed_spells_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
 int add_empty_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
 int add_unclaimed_traps_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
 int add_reinforce_to_imp_stack(struct Dungeon *dungeon, int max_tasks);
+long add_one_pretty_and_convert_to_imp_stack_starting_from_pos(struct Dungeon *dungeon, unsigned char *slbopt, struct SlabCoord *slblist, const struct Coord3d * start_pos, int *remain_num);
+int add_one_pretty_or_convert_per_imp(struct Dungeon *dungeon, int max_tasks, struct Thing *creatng);
+
 
 TbBool imp_will_soon_be_arming_trap(struct Thing *traptng);
 TbBool imp_will_soon_be_working_at_excluding(const struct Thing *creatng, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
