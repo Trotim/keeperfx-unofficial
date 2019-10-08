@@ -485,6 +485,8 @@ void init_dungeons(void)
         dungeon->max_creatures_attracted = game.default_max_crtrs_gen_entrance;
         dungeon->dead_creatures_count = 0;
         dungeon->dead_creature_idx = 0;
+        dungeon->dead_backup_creatures_count = 0;
+        dungeon->dead_backup_creature_idx = 0;
         for (k=0; k < DUNGEONS_COUNT; k++)
         {
           if (k == i)

@@ -272,10 +272,29 @@ long find_item_in_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel
     }
     return -1;
 }
+long find_item_in_dead_backup_creature_list(struct Dungeon *dungeon, ThingModel crmodel, long crlevel)
+{
+    struct CreatureStorage *cbstore;
+    long i;
+    if (dungeon_invalid(dungeon))
+        return -1;
+    i = dungeon->dead_backup_creatures_count-1;
+    while (i >= 0)
+    {
+        cbstore = &dungeon->dead_backup_creatures[i];
+        if ((cbstore->model == crmodel) && (cbstore->explevel == crlevel))
+        {
+          return i;
+        }
+        i--;
+    }
+    return -1;
+}
 
 TbBool add_item_to_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel, long crlevel)
 {
     struct CreatureStorage *cstore;
+	struct CreatureStorage *cbstore;
     long i;
     SYNCDBG(18,"Starting");
     if (dungeon_invalid(dungeon))
@@ -283,16 +302,28 @@ TbBool add_item_to_dead_creature_list(struct Dungeon *dungeon, ThingModel crmode
         WARNLOG("Invalid dungeon");
         return false;
     }
-    // Check if the creature of same type is in list
+    // Check if the creature of same type is in list, if so, put on backup list
     i = find_item_in_dead_creature_list(dungeon, crmodel, crlevel);
     if (i >= 0)
     {
-        // This creature is already in list
-        SYNCDBG(18,"Already in list");
-        //TODO RESURRECT Introduce a counter of creatures in CreatureStorage.
-        return false;
+		if (dungeon->dead_backup_creatures_count < DEAD_CREATURES_MAX_COUNT)
+		{
+			i = dungeon->dead_backup_creatures_count;
+			dungeon->dead_backup_creatures_count++;
+		} else
+		{
+			i = dungeon->dead_backup_creature_idx;
+			dungeon->dead_backup_creature_idx++;
+			if (dungeon->dead_backup_creature_idx >= DEAD_CREATURES_MAX_COUNT)
+			  dungeon->dead_backup_creature_idx = 0;
+		}
+		cbstore = &dungeon->dead_backup_creatures[i];
+		cbstore->model = crmodel;
+		cbstore->explevel = crlevel;
+		SYNCDBG(19,"Finished");
+		return true;
     }
-    // Find a slot for the new creature
+    // Find a slot for the new creature on the regular list
     if (dungeon->dead_creatures_count < DEAD_CREATURES_MAX_COUNT)
     {
         i = dungeon->dead_creatures_count;
@@ -314,28 +345,56 @@ TbBool add_item_to_dead_creature_list(struct Dungeon *dungeon, ThingModel crmode
 TbBool remove_item_from_dead_creature_list(struct Dungeon *dungeon, ThingModel crmodel, long crlevel)
 {
     struct CreatureStorage *cstore;
+	struct CreatureStorage *cbstore;
     long i,rmpos;
+	long j,rmbpos;
     SYNCDBG(18,"Starting");
     if (dungeon_invalid(dungeon))
     {
         WARNLOG("Invalid dungeon");
         return false;
     }
-    rmpos = find_item_in_dead_creature_list(dungeon, crmodel, crlevel);
-    if (rmpos < 0)
-        return false;
-    for (i=rmpos; i < DEAD_CREATURES_MAX_COUNT-1; i++) {
-        LbMemoryCopy(&dungeon->dead_creatures[i], &dungeon->dead_creatures[i+1], sizeof(struct CreatureStorage));
-    }
-    cstore = &dungeon->dead_creatures[DEAD_CREATURES_MAX_COUNT-1];
-    cstore->model = 0;
-    cstore->explevel = 0;
-    if (dungeon->dead_creature_idx > 0)
-        dungeon->dead_creature_idx--;
-    if (dungeon->dead_creatures_count > 0)
-        dungeon->dead_creatures_count--;
-    SYNCDBG(19,"Finished");
-    return true;
+	// If it's on the backup list, remove it on the backup list
+    rmbpos = find_item_in_dead_backup_creature_list(dungeon, crmodel, crlevel);
+	if (rmbpos >= 0)
+	{
+		for (j=rmbpos; j < DEAD_CREATURES_MAX_COUNT-1; j++) {
+			LbMemoryCopy(&dungeon->dead_backup_creatures[j], &dungeon->dead_backup_creatures[j+1], sizeof(struct CreatureStorage));
+		}
+		cbstore = &dungeon->dead_backup_creatures[DEAD_CREATURES_MAX_COUNT-1];
+		cbstore->model = 0;
+		cbstore->explevel = 0;
+		if (dungeon->dead_backup_creature_idx > 0)
+			dungeon->dead_backup_creature_idx--;
+		if (dungeon->dead_backup_creatures_count > 0)
+			dungeon->dead_backup_creatures_count--;
+		SYNCDBG(19,"Finished");
+		return true;
+	}
+	// If not on the backup list, remove it from the regular list
+	else
+	{
+		rmpos = find_item_in_dead_creature_list(dungeon, crmodel, crlevel);
+		if (rmpos < 0)
+		{
+			return false; // If it's on neither list
+		}
+		else
+		{
+			for (i=rmpos; i < DEAD_CREATURES_MAX_COUNT-1; i++) {
+				LbMemoryCopy(&dungeon->dead_creatures[i], &dungeon->dead_creatures[i+1], sizeof(struct CreatureStorage));
+			}
+			cstore = &dungeon->dead_creatures[DEAD_CREATURES_MAX_COUNT-1];
+			cstore->model = 0;
+			cstore->explevel = 0;
+			if (dungeon->dead_creature_idx > 0)
+				dungeon->dead_creature_idx--;
+			if (dungeon->dead_creatures_count > 0)
+				dungeon->dead_creatures_count--;
+			SYNCDBG(19,"Finished");
+			return true;
+		}
+	}
 }
 
 TbBool update_dead_creatures_list(struct Dungeon *dungeon, const struct Thing *thing)
