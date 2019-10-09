@@ -32,6 +32,7 @@ extern "C" {
 
 struct Thing;
 struct Dungeon;
+struct BDungeon;
 
 enum DeadCreatureStates {
     DCrSt_Unused = 0,

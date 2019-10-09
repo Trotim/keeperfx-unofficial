@@ -264,10 +264,13 @@ unsigned long field_14BE;
     unsigned short selected_creatures_of_model[CREATURE_TYPES_COUNT];
     /** Index of last creature picked up of given GUI Job. */
     unsigned short selected_creatures_of_gui_job[CREATURE_GUI_JOBS_COUNT];
+    };
+
+struct BDungeon {
 	struct CreatureStorage dead_backup_creatures[DEAD_CREATURES_MAX_COUNT];
     long dead_backup_creatures_count;
     long dead_backup_creature_idx;
-    };
+	};
 
 #pragma pack()
 /******************************************************************************/
@@ -285,6 +288,7 @@ TbBool dungeon_invalid(const struct Dungeon *dungeon);
 
 void clear_dungeons(void);
 void init_dungeons(void);
+void init_bdungeons(void);
 
 void decrease_dungeon_area(PlayerNumber plyr_idx, long value);
 void increase_room_area(PlayerNumber plyr_idx, long value);

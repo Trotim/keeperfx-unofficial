@@ -4016,6 +4016,7 @@ void init_level(void)
 
     erstats_clear();
     init_dungeons();
+	init_bdungeons();
     // Load the actual level files
     preload_script(get_selected_level_number());
     load_map_file(get_selected_level_number());
