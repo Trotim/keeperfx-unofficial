@@ -824,6 +824,10 @@ void maintain_scroll_up(struct GuiButton *gbtn)
     //_DK_maintain_scroll_up(gbtn);
     scrollwnd = (struct TextScrollWindow *)gbtn->content;
     gbtn->flags ^= (gbtn->flags ^ LbBtnF_Enabled * (scrollwnd->start_y < 0)) & LbBtnF_Enabled;
+    if (wheel_scrolled_up & lbKeyOn[KC_LCONTROL])
+    {
+        scrollwnd->action = 1;
+    }
 }
 
 void maintain_scroll_down(struct GuiButton *gbtn)
@@ -833,6 +837,10 @@ void maintain_scroll_down(struct GuiButton *gbtn)
     scrollwnd = (struct TextScrollWindow *)gbtn->content;
     gbtn->flags ^= (gbtn->flags ^ LbBtnF_Enabled
         * (scrollwnd->window_height - scrollwnd->text_height + 2 < scrollwnd->start_y)) & LbBtnF_Enabled;
+    if (wheel_scrolled_down & lbKeyOn[KC_LCONTROL])
+    {
+        scrollwnd->action = 2;
+    }
 }
 
 void frontend_continue_game_maintain(struct GuiButton *gbtn)
@@ -1539,10 +1547,10 @@ void draw_scrolling_button_string(struct GuiButton *gbtn, const char *text)
     switch ( scrollwnd->action )
     {
     case 1:
-      scrollwnd->start_y += 8*units_per_pixel/16;
+      scrollwnd->start_y += 12*units_per_pixel/16;
       break;
     case 2:
-      scrollwnd->start_y -= 8*units_per_pixel/16;
+      scrollwnd->start_y -= 12*units_per_pixel/16;
       break;
     case 3:
       scrollwnd->start_y += area_height;
