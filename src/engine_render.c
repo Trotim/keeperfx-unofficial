@@ -53,6 +53,9 @@
 #include "game_legacy.h"
 #include "keeperfx.hpp"
 
+#include "ariadne_tringls.h"
+#include "ariadne_points.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -4315,6 +4318,10 @@ void draw_view(struct Camera *cam, unsigned char a2)
         create_map_volume_box(x, y, z);
     }
     cam->zoom = zoom_mem;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
+	// Draw pathfinding triangles
+	if ((start_params.debug_flags & DFlg_CreatrPaths) != 0) {
+		draw_ariadne_triangles();
+	}
     display_drawlist();
     map_volume_box.visible = 0;
     SYNCDBG(9,"Finished");
@@ -5439,6 +5446,61 @@ void draw_mapwho_ariadne_path(struct Thing *thing)
 		end_y = map_y_pos - (long)wp_next->y.val;
 		create_line_const_z(1, (long)arid->startpos.z.val + COORD_PER_STL / 16 - map_z_pos, beg_x, end_x, beg_y, end_y);
 		wp_prev = wp_next;
+	}
+}
+
+void draw_ariadne_triangles( void )
+{
+	// Don't draw debug lines in Possession to avoid crash
+	struct PlayerInfo *player;
+	player = get_my_player();
+	if (player->view_mode == PVM_CreatureView)
+		return;
+
+	NAVIDBG(9, "Start Triangle debug drawing");
+
+	int const DEBUG_TRI_CYCLES = 40;
+	long i;
+	int offset = game.play_gameturn % DEBUG_TRI_CYCLES;
+	for (i = offset; i < count_Triangles; i = i + DEBUG_TRI_CYCLES)
+	{
+		NAVIDBG(9, "Draw triangle: %ld", i);
+
+		struct Triangle *tri = get_triangle(i);
+		if (triangle_is_invalid(tri)) {
+			NAVIDBG(9, "Skipped triangle: %ld (Invalid triangle)", i);
+			continue;
+		}
+
+		struct Point *tri_a = get_triangle_point(i, 0);
+		if (tri_a == INVALID_POINT) {
+			NAVIDBG(9, "Skipped triangle: %ld (Invalid triangle point)", i);
+			continue;
+		}
+		struct Point *tri_b = get_triangle_point(i, 1);
+		if (tri_b == INVALID_POINT) {
+			NAVIDBG(9, "Skipped triangle: %ld (Invalid triangle point)", i);
+			continue;
+		}
+		struct Point *tri_c = get_triangle_point(i, 2);
+		if (tri_c == INVALID_POINT) {
+			NAVIDBG(9, "Skipped triangle: %ld (Invalid triangle point)", i);
+			continue;
+		}
+
+		NAVIDBG(9, "tri_a: x: %ld, y: %ld", (long)tri_a->x, (long)tri_a->y);
+		NAVIDBG(9, "tri_b: x: %ld, y: %ld", (long)tri_b->x, (long)tri_b->y);
+		NAVIDBG(9, "tri_c: x: %ld, y: %ld", (long)tri_c->x, (long)tri_c->y);
+
+		// Don't draw if list of things to draw is already full
+		if (!is_free_space_in_poly_pool(3)) {
+			NAVIDBG(9, "Skipped triangle: %ld (Drawlist full)", i);
+			continue;
+		}
+
+		create_line_const_z(1, map_z_pos + 1280, ((long)tri_a->x * COORD_PER_STL) - map_x_pos, ((long)tri_b->x * COORD_PER_STL) - map_x_pos, map_y_pos - ((long)tri_a->y * COORD_PER_STL), map_y_pos - ((long)tri_b->y * COORD_PER_STL));
+		create_line_const_z(1, map_z_pos + 1280, ((long)tri_b->x * COORD_PER_STL) - map_x_pos, ((long)tri_c->x * COORD_PER_STL) - map_x_pos, map_y_pos - ((long)tri_b->y * COORD_PER_STL), map_y_pos - ((long)tri_c->y * COORD_PER_STL));
+		create_line_const_z(1, map_z_pos + 1280, ((long)tri_a->x * COORD_PER_STL) - map_x_pos, ((long)tri_c->x * COORD_PER_STL) - map_x_pos, map_y_pos - ((long)tri_a->y * COORD_PER_STL), map_y_pos - ((long)tri_c->y * COORD_PER_STL));
 	}
 }
 

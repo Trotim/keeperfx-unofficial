@@ -67,6 +67,7 @@ long tri_new(void)
     }
     Triangles[i].tree_alt = 0;
     count_Triangles++;
+	NAVIDBG(13, "count_Triangles: %ld", count_Triangles);
     return i;
 }
 

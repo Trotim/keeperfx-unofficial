@@ -532,6 +532,9 @@ void update_engine_settings(struct PlayerInfo *player);
 void display_drawlist(void);
 void draw_view(struct Camera *cam, unsigned char a2);
 void draw_frontview_engine(struct Camera *cam);
+
+void draw_ariadne_triangles(void);
+
 /******************************************************************************/
 #ifdef __cplusplus
 }
