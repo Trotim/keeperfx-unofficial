@@ -2694,6 +2694,22 @@ long calculate_melee_damage(const struct Thing *creatng)
 }
 
 /**
+ * Projects damage made by a creature by hand (using strength).
+ * Gives a best estimate of the damage, but shouldn't be used to actually inflict it.
+ * @param thing The creature which will be inflicting the damage.
+ */
+long project_melee_damage(const struct Thing *creatng)
+{
+    const struct CreatureControl *cctrl;
+    const struct CreatureStats *crstat;
+    cctrl = creature_control_get_from_thing(creatng);
+    crstat = creature_stats_get_from_thing(creatng);
+    long strength;
+    strength = compute_creature_max_strength(crstat->strength,cctrl->explevel);
+    return project_creature_attack_melee_damage(strength, crstat->luck, cctrl->explevel);
+}
+
+/**
  * Calculates damage made by a creature using specific shot model.
  * @param thing The creature which will be shooting.
  * @param shot_model Shot kind which will be created.
@@ -3540,6 +3556,40 @@ TbBool creature_increase_level(struct Thing *thing)
           cctrl->spell_flags |= CSAfF_ExpLevelUp;
           return true;
       }
+  }
+  return false;
+}
+
+TbBool creature_increase_multiple_levels(struct Thing *thing, int count)
+{
+  struct Dungeon *dungeon;
+  struct CreatureStats *crstat;
+  struct CreatureControl *cctrl;
+  cctrl = creature_control_get_from_thing(thing);
+  if (creature_control_invalid(cctrl))
+  {
+      ERRORLOG("Invalid creature control; no action");
+      return false;
+  }
+  dungeon = get_dungeon(thing->owner);
+  int i;
+  int k = 0;
+  for (i=0; i < count; i++)
+  {
+    if (dungeon->creature_max_level[thing->model] > cctrl->explevel)
+    {
+      crstat = creature_stats_get_from_thing(thing);
+      if ((cctrl->explevel < CREATURE_MAX_LEVEL-1) || (crstat->grow_up != 0))
+      {
+        cctrl->spell_flags |= CSAfF_ExpLevelUp;
+        update_creature_levels(thing);
+        k++;
+      }
+    }
+  }
+  if (k > 0)
+  {
+      return true;
   }
   return false;
 }

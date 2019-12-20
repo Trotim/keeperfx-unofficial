@@ -89,6 +89,7 @@ TbBool create_random_hero_creature(MapCoord x, MapCoord y, PlayerNumber owner, C
 TbBool create_owned_special_digger(MapCoord x, MapCoord y, PlayerNumber owner);
 
 TbBool creature_increase_level(struct Thing *thing);
+TbBool creature_increase_multiple_levels(struct Thing *thing, int count);
 void set_creature_level(struct Thing *thing, long nlvl);
 void init_creature_level(struct Thing *thing, long nlev);
 long get_creature_speed(const struct Thing *thing);
@@ -163,6 +164,7 @@ long get_creature_thing_score(const struct Thing *thing);
 TbBool add_creature_score_to_owner(struct Thing *thing);
 TbBool remove_creature_score_from_owner(struct Thing *thing);
 long calculate_melee_damage(const struct Thing *thing);
+long project_melee_damage(const struct Thing *thing);
 long calculate_shot_damage(const struct Thing *thing, ThingModel shot_model);
 long project_creature_shot_damage(const struct Thing *thing, ThingModel shot_model);
 
