@@ -26,19 +26,13 @@
 extern "C" {
 #endif
 /******************************************************************************/
-DLLIMPORT long _DK_heapmgr_free_oldest(struct HeapMgrHeader *hmhead);
-DLLIMPORT struct HeapMgrHandle *_DK_heapmgr_add_item(struct HeapMgrHeader *hmhead, long idx);
-DLLIMPORT void _DK_heapmgr_make_newest(struct HeapMgrHeader *hmhead, struct HeapMgrHandle *hmhandle);
-DLLIMPORT struct HeapMgrHeader *_DK_heapmgr_init(unsigned char *a1, long a2, long a3);
-DLLIMPORT void _DK_heapmgr_complete_defrag(struct HeapMgrHeader *hmhead);
 DLLIMPORT long _DK_heapmgr_free_handle(struct HeapMgrHeader *hmhead, struct HeapMgrHandle *hmhandle);
 /******************************************************************************/
 struct HeapMgrHandle *find_free_handle(struct HeapMgrHeader *hmhead)
 {
-    struct HeapMgrHandle *hmh;
     if (hmhead->field_10 >= hmhead->handles_count)
         return NULL;
-    hmh = (struct HeapMgrHandle *)&hmhead[1];
+    struct HeapMgrHandle* hmh = (struct HeapMgrHandle*)&hmhead[1];
     while (hmh->flags)
         hmh++;
     return hmh;
@@ -51,9 +45,8 @@ long heapmgr_free_handle(struct HeapMgrHeader *hmhead, struct HeapMgrHandle *hmh
 
 long heapmgr_free_oldest(struct HeapMgrHeader *hmhead)
 {
-    struct HeapMgrHandle *hlast;
     //return _DK_heapmgr_free_oldest(hmhead);
-    hlast = hmhead->last_hndl;
+    struct HeapMgrHandle* hlast = hmhead->last_hndl;
     if (hlast == NULL) {
         return -1;
     }
@@ -74,14 +67,11 @@ long heapmgr_free_oldest(struct HeapMgrHeader *hmhead)
  */
 void heapmgr_make_newest(struct HeapMgrHeader *hmhead, struct HeapMgrHandle *hmhandle)
 {
-    struct HeapMgrHandle *hnext;
-    struct HeapMgrHandle *hprev;
-    struct HeapMgrHandle *hsecond;
     //_DK_heapmgr_make_newest(hmhead, hmhandle);
-    hnext = hmhandle->next_hndl;
+    struct HeapMgrHandle* hnext = hmhandle->next_hndl;
     if (hnext != NULL)
     {
-        hprev = hmhandle->prev_hndl;
+        struct HeapMgrHandle* hprev = hmhandle->prev_hndl;
         hnext->prev_hndl = hprev;
         if (hprev != NULL)
         {
@@ -90,7 +80,7 @@ void heapmgr_make_newest(struct HeapMgrHeader *hmhead, struct HeapMgrHandle *hmh
         {
             hmhead->last_hndl = hmhandle->next_hndl;
         }
-        hsecond = hmhead->first_hndl;
+        struct HeapMgrHandle* hsecond = hmhead->first_hndl;
         hsecond->next_hndl = hmhandle;
         hmhandle->next_hndl = NULL;
         hmhandle->prev_hndl = hsecond;
@@ -98,20 +88,89 @@ void heapmgr_make_newest(struct HeapMgrHeader *hmhead, struct HeapMgrHandle *hmh
     }
 }
 
-struct HeapMgrHandle *heapmgr_add_item(struct HeapMgrHeader *hmhead, long idx)
+struct HeapMgrHandle *heapmgr_add_item(struct HeapMgrHeader *hmhdr, long idx)
 {
-    return _DK_heapmgr_add_item(hmhead, idx);
+    if ((hmhdr->databuf_free - hmhdr->field_14) < idx)
+        return NULL;
+
+    struct HeapMgrHandle* res = NULL;
+    if (hmhdr->handles_count > hmhdr->field_10)
+    {
+        res = (struct HeapMgrHandle*)&hmhdr[1];
+        if ((uint16_t)hmhdr[1].databuf_free) // TODO: why were only 16bit checked, padding? hidden member?
+            while ((++res)->flags) {}
+    }
+    if (!res)
+        return NULL;
+    struct HeapMgrHandle* alloc_iter = hmhdr->first_alloc;
+    if (alloc_iter)
+    {
+        if ((uint8_t*)alloc_iter->buf - hmhdr->databuf_start < idx)
+        {
+            while (1)
+            {
+                uint8_t* buf;
+                if (alloc_iter->next_alloc)
+                    buf = (uint8_t*)alloc_iter->next_alloc->buf;
+                else
+                    buf = hmhdr->databuf_end;
+                int size = &buf[-alloc_iter->len] - (uint8_t*)alloc_iter->buf;
+                if (size < 0)
+                {
+                    ERRORLOG("Overlapping heap blocks");
+                    return NULL;
+                }
+                if (size >= idx)
+                    break;
+                if (!alloc_iter->next_alloc)
+                    return NULL;
+                alloc_iter = alloc_iter->next_alloc;
+            }
+            res->buf = (char*)alloc_iter->buf + alloc_iter->len;
+            res->field_C = alloc_iter;
+            res->next_alloc = alloc_iter->next_alloc;
+            if (alloc_iter->next_alloc)
+                alloc_iter->next_alloc->field_C = res;
+            alloc_iter->next_alloc = res;
+        }
+        else
+        {
+            res->buf = hmhdr->databuf_start;
+            res->next_alloc = alloc_iter;
+            hmhdr->first_alloc = res;
+            alloc_iter->field_C = res;
+        }
+    }
+    else
+    {
+        hmhdr->first_alloc = res;
+        res->buf = hmhdr->databuf_start;
+    }
+    res->flags = 1;
+    res->len = idx;
+    hmhdr->field_14 += idx;
+    ++hmhdr->field_10;
+    if (hmhdr->first_hndl)
+    {
+        hmhdr->first_hndl->next_hndl = res;
+        res->prev_hndl = hmhdr->first_hndl;
+    }
+    else
+        hmhdr->last_hndl = res;
+
+    hmhdr->first_hndl = res;
+    if ((uint8_t*)res->buf + res->len >= hmhdr->databuf_end)
+        ERRORLOG("Disaster. Handle allocated past end of heap area");
+    return res;
 }
 
 struct HeapMgrHeader *heapmgr_init(unsigned char *buf_end, long buf_remain, long nheaders)
 {
     //return _DK_heapmgr_init(buf_end, buf_remain, nsamples);
-    struct HeapMgrHeader *hmgr;
-    long headers_len;
-    headers_len = sizeof(struct HeapMgrHeader) + sizeof(struct HeapMgrHandle) * nheaders;
+    long headers_len = sizeof(struct HeapMgrHeader) + sizeof(struct HeapMgrHandle) * nheaders;
     if (buf_remain <= headers_len)
         return NULL;
-    hmgr = (struct HeapMgrHeader *)buf_end;
+    struct HeapMgrHeader* hmgr = (struct HeapMgrHeader*)buf_end;
     hmgr->databuf_start = (buf_end + headers_len);
     hmgr->databuf_end = (buf_end + buf_remain);
     hmgr->databuf_free = buf_remain - headers_len;
@@ -126,14 +185,11 @@ struct HeapMgrHeader *heapmgr_init(unsigned char *buf_end, long buf_remain, long
 
 void heapmgr_complete_defrag(struct HeapMgrHeader *hmhead)
 {
-    struct HeapMgrHandle *hmhandle;
     //_DK_heapmgr_complete_defrag(hmhead); return;
-    for (hmhandle = hmhead->first_alloc; hmhandle->next_alloc != NULL; hmhandle = hmhandle->next_alloc)
+    for (struct HeapMgrHandle* hmhandle = hmhead->first_alloc; hmhandle->next_alloc != NULL; hmhandle = hmhandle->next_alloc)
     {
-        struct HeapMgrHandle *hnext;
-        void *bufend;
-        bufend = hmhandle->buf + hmhandle->len;
-        hnext = hmhandle->next_alloc;
+        void *bufend = (char*)hmhandle->buf + hmhandle->len;
+        struct HeapMgrHandle* hnext = hmhandle->next_alloc;
         if (hnext->buf > bufend)
         {
             memmove(bufend, hnext->buf, hnext->len);

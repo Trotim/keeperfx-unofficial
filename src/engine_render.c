@@ -60,24 +60,13 @@ extern "C" {
 DLLIMPORT void _DK_draw_fastview_mapwho(struct Camera *cam, struct JontySpr *outbuf);
 DLLIMPORT void _DK_draw_stripey_line(long pos_x, long pos_z, long beg_y, long end_y, unsigned char scale);
 DLLIMPORT long _DK_convert_world_coord_to_front_view_screen_coord(struct Coord3d *pos, struct Camera *cam, long *x, long *y, long *z);
-DLLIMPORT void _DK_rotate_base_axis(struct M33 *matx, short pos_z, unsigned char beg_y);
-DLLIMPORT void _DK_fill_in_points_perspective(long pos_x, long pos_z, struct MinMax *mm);
-DLLIMPORT void _DK_fill_in_points_cluedo(long pos_x, long pos_z, struct MinMax *mm);
-DLLIMPORT void _DK_fill_in_points_isometric(long pos_x, long pos_z, struct MinMax *mm);
-DLLIMPORT void _DK_find_gamut(void);
-DLLIMPORT void _DK_frame_wibble_generate(void);
-DLLIMPORT void _DK_setup_rotate_stuff(long pos_x, long pos_z, long beg_y, long end_y, long scale, long a6, long a7, long a8);
 DLLIMPORT void _DK_do_a_trig_gourad_tr(struct EngineCoord *ep1, struct EngineCoord *ep2, struct EngineCoord *ep3, short plane_end, long scale);
 DLLIMPORT void _DK_do_a_trig_gourad_bl(struct EngineCoord *ep1, struct EngineCoord *ep2, struct EngineCoord *ep3, short plane_end, long scale);
-DLLIMPORT void _DK_do_map_who(short stl_x);
-DLLIMPORT void _DK_fiddle_half_gamut(long y, long pos_y, long floor_x, long floor_y);
 DLLIMPORT long _DK_do_a_plane_of_engine_columns_sub5(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3);
 DLLIMPORT void _DK_do_a_gpoly_gourad_tr(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, short plane_end, int a5);
 DLLIMPORT void _DK_do_a_gpoly_unlit_tr(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, short plane_end);
 DLLIMPORT void _DK_do_a_gpoly_unlit_bl(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, short plane_end);
 DLLIMPORT void _DK_do_a_gpoly_gourad_bl(struct EngineCoord *ec1, struct EngineCoord *ec2, struct EngineCoord *ec3, short plane_end, int a5);
-DLLIMPORT long _DK_find_closest_lights(struct Coord3d *pos, struct NearestLights *nlgt);
-DLLIMPORT void _DK_create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct Coord3d *pos);
 DLLIMPORT void _DK_create_status_box(struct Thing *thing, struct EngineCoord *ecor);
 /******************************************************************************/
 unsigned short shield_offset[] = {
@@ -164,9 +153,16 @@ void do_map_who(short tnglist_idx);
 /******************************************************************************/
 void get_floor_pointed_at(long x, long y, long *floor_x, long *floor_y)
 {
-    long long ofs_x,ofs_y;
-    long long sor_hp,sor_hn,sor_vp,sor_vn;
-    long long der_hp,der_hn,der_vp,der_vn;
+    long long ofs_x;
+    long long ofs_y;
+    long long sor_hp;
+    long long sor_hn;
+    long long sor_vp;
+    long long sor_vn;
+    long long der_hp;
+    long long der_hn;
+    long long der_vp;
+    long long der_vn;
     if ( (vert_offset[1] == 0) && (hori_offset[1] == 0) )
     {
         *floor_x = 0;
@@ -189,9 +185,14 @@ void get_floor_pointed_at(long x, long y, long *floor_x, long *floor_y)
 
 long compute_cells_away(void)
 {
-    long half_width,half_height;
-    long xmin,ymin,xmax,ymax;
-    long xcell,ycell;
+    long half_width;
+    long half_height;
+    long xmin;
+    long ymin;
+    long xmax;
+    long ymax;
+    long xcell;
+    long ycell;
     struct PlayerInfo *player;
     long ncells_a;
     player = get_my_player();
@@ -308,9 +309,13 @@ TbBool is_free_space_in_poly_pool(int nitems)
 
 void rotpers_parallel_3(struct EngineCoord *epos, struct M33 *matx, long zoom)
 {
-    long factor_w,factor_h;
-    long inp_x,inp_y,inp_z;
-    long long out_x,out_y;
+    long factor_w;
+    long factor_h;
+    long inp_x;
+    long inp_y;
+    long inp_z;
+    long long out_x;
+    long long out_y;
     inp_x = epos->x;
     inp_y = epos->y;
     inp_z = epos->z;
@@ -346,7 +351,10 @@ void base_vec_normalisation(struct M33 *matx, unsigned char a2)
 {
     struct M31 *vec;
     vec = &matx->r[a2];
-    long rv0, rv1, rv2, rvlen;
+    long rv0;
+    long rv1;
+    long rv2;
+    long rvlen;
     rv0 = vec->v[0];
     rv1 = vec->v[1];
     rv2 = vec->v[2];
@@ -374,7 +382,9 @@ void rotate_base_axis(struct M33 *matx, short angle, unsigned char axis)
 {
     //_DK_rotate_base_axis(matx, a2, a3); return;
 
-    unsigned char scor0, scor1, scor2;
+    unsigned char scor0;
+    unsigned char scor1;
+    unsigned char scor2;
     switch (axis)
     {
     case 1:
@@ -403,15 +413,22 @@ void rotate_base_axis(struct M33 *matx, short angle, unsigned char axis)
     struct M33 matt;
     {
 #define TRIG_LIMIT (1 << (LbFPMath_TrigmBits - 2))
-        int angle_sin, angle_cos;
+        int angle_sin;
+        int angle_cos;
         angle_sin = LbSinL(angle) >> 2;
         angle_cos = LbCosL(angle) >> 2;
-        long val0, val1, val2;
+        long val0;
+        long val1;
+        long val2;
         val0 = matx->r[scor2].v[0];
         val2 = matx->r[scor2].v[2];
         val1 = matx->r[scor2].v[1];
-        long shf0, shf1, shf2;
-        long mag0, mag1, mag2;
+        long shf0;
+        long shf1;
+        long shf2;
+        long mag0;
+        long mag1;
+        long mag2;
         matt.r[0].v[0] = (val0 * val0 >> 14) + (angle_cos * (TRIG_LIMIT - (val0 * val0 >> 14)) >> 14);
         matt.r[1].v[1] = (val1 * val1 >> 14) + (angle_cos * (TRIG_LIMIT - (val1 * val1 >> 14)) >> 14);
         matt.r[2].v[2] = (val2 * val2 >> 14) + (angle_cos * (TRIG_LIMIT - (val2 * val2 >> 14)) >> 14);
@@ -464,14 +481,16 @@ void fill_in_points_perspective(long bstl_x, long bstl_y, struct MinMax *mm)
     if ((bstl_y < 0) || (bstl_y > map_subtiles_y-1)) {
         return;
     }
-    long mmin, mmax;
+    long mmin;
+    long mmax;
     mmin = min(mm[0].min,mm[1].min);
     mmax = max(mm[0].max,mm[1].max);
     if (mmin + bstl_x < 1)
       mmin = 1 - bstl_x;
     if (mmax + bstl_x > map_subtiles_y)
       mmax = map_subtiles_y - bstl_x;
-    MapSubtlCoord stl_x, stl_y;
+    MapSubtlCoord stl_x;
+    MapSubtlCoord stl_y;
     stl_y = bstl_y;
     stl_x = mmin + bstl_x;
     apos += subtile_coord(mmin,0);
@@ -485,9 +504,11 @@ void fill_in_points_perspective(long bstl_x, long bstl_y, struct MinMax *mm)
     }
     struct Map *mapblk;
     struct Column *col;
-    unsigned long pfulmask_or, pfulmask_and;
+    unsigned long pfulmask_or;
+    unsigned long pfulmask_and;
     {
-        unsigned long mask_cur, mask_yp;
+        unsigned long mask_cur;
+        unsigned long mask_yp;
         mask_cur = mask_unrev;
         mask_yp = mask_unrev;
         mapblk = get_map_block_at(stl_x-1, stl_y+1);
@@ -504,12 +525,15 @@ void fill_in_points_perspective(long bstl_x, long bstl_y, struct MinMax *mm)
         pfulmask_and = mask_cur & mask_yp;
     }
 
-    int wib_x, wib_y, wib_v;
+    int wib_x;
+    int wib_y;
+    int wib_v;
     wib_y = (stl_y + 1) & 3;
     int idxx;
     for (idxx=mmax-mmin+1; idxx > 0; idxx--)
     {
-        unsigned long mask_cur, mask_yp;
+        unsigned long mask_cur;
+        unsigned long mask_yp;
         mask_cur = mask_unrev;
         mask_yp = mask_unrev;
         mapblk = get_map_block_at(stl_x, stl_y+1);
@@ -523,10 +547,12 @@ void fill_in_points_perspective(long bstl_x, long bstl_y, struct MinMax *mm)
             col = get_map_column(mapblk);
             mask_yp = col->solidmask;
         }
-        unsigned long nfulmask_or, nfulmask_and;
+        unsigned long nfulmask_or;
+        unsigned long nfulmask_and;
         nfulmask_or = mask_cur | mask_yp;
         nfulmask_and = mask_cur & mask_yp;
-        unsigned long fulmask_or, fulmask_and;
+        unsigned long fulmask_or;
+        unsigned long fulmask_and;
         fulmask_or = nfulmask_or | pfulmask_or;
         fulmask_and = nfulmask_and & pfulmask_and;
         pfulmask_or = nfulmask_or;
@@ -535,7 +561,8 @@ void fill_in_points_perspective(long bstl_x, long bstl_y, struct MinMax *mm)
         lightness = 0;
         if ((fulmask_or & 0x10000) == 0)
             lightness = game.lish.subtile_lightness[get_subtile_number(stl_x, stl_y+1)];
-        long hmin, hmax;
+        long hmin;
+        long hmax;
         hmax = height_masks[fulmask_or & 0xff];
         hmin = floor_height[fulmask_and & 0xff];
         struct EngineCoord *ecord;
@@ -592,7 +619,8 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
     if ((bstl_y < 0) || (bstl_y > map_subtiles_y-1)) {
         return;
     }
-    long mmin, mmax;
+    long mmin;
+    long mmax;
     mmin = min(mm[0].min,mm[1].min);
     mmax = max(mm[0].max,mm[1].max);
     if (mmin + bstl_x < 1) {
@@ -604,7 +632,8 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
     if (mmax < mmin) {
         return;
     }
-    MapSubtlCoord stl_x, stl_y;
+    MapSubtlCoord stl_x;
+    MapSubtlCoord stl_y;
     stl_y = bstl_y;
     stl_x = mmin + bstl_x;
     apos += (mmin << 8);
@@ -618,9 +647,11 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
     }
     struct Map *mapblk;
     struct Column *col;
-    unsigned long pfulmask_or, pfulmask_and;
+    unsigned long pfulmask_or;
+    unsigned long pfulmask_and;
     {
-        unsigned long mask_cur, mask_yp;
+        unsigned long mask_cur;
+        unsigned long mask_yp;
         mask_cur = mask_unrev;
         mask_yp = mask_unrev;
         mapblk = get_map_block_at(stl_x-1, stl_y+1);
@@ -648,8 +679,11 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
     cam = myplyr->acamera;
     long view_z;
     int zoom;
-    long eview_w, eview_h, eview_z;
-    int hview_y, hview_z;
+    long eview_w;
+    long eview_h;
+    long eview_z;
+    int hview_y;
+    int hview_z;
     zoom = cam->zoom / pixel_size;
     view_z = object_origin.z + (cells_away << 8)
         + ((bpos * camera_matrix.r[2].v[2]
@@ -675,20 +709,26 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
     if (hview_z >= 11232) {
         hview_z = 11232;
     }
-    int dview_w, dview_h, dview_z;
-    int dhview_y, dhview_z;
+    int dview_w;
+    int dview_h;
+    int dview_z;
+    int dhview_y;
+    int dhview_z;
 
     dview_w = zoom * camera_matrix.r[0].v[0] >> 14;
     dhview_y = -(zoom * camera_matrix.r[1].v[0]) >> 14;
     dhview_z = camera_matrix.r[2].v[0] >> 7;
     dview_h = -(zoom * camera_matrix.r[1].v[1]) >> 14;
     dview_z = camera_matrix.r[2].v[1] >> 7;
-    int wib_x, wib_y, wib_v;
+    int wib_x;
+    int wib_y;
+    int wib_v;
     wib_y = (stl_y + 1) & 3;
     int idxx;
     for (idxx=mmax-mmin+1; idxx > 0; idxx--)
     {
-        unsigned long mask_cur, mask_yp;
+        unsigned long mask_cur;
+        unsigned long mask_yp;
         mask_cur = mask_unrev;
         mask_yp = mask_unrev;
         mapblk = get_map_block_at(stl_x, stl_y+1);
@@ -708,10 +748,12 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
                 mask_yp &= 3;
             }
         }
-        unsigned long nfulmask_or, nfulmask_and;
+        unsigned long nfulmask_or;
+        unsigned long nfulmask_and;
         nfulmask_or = mask_cur | mask_yp;
         nfulmask_and = mask_cur & mask_yp;
-        unsigned long fulmask_or, fulmask_and;
+        unsigned long fulmask_or;
+        unsigned long fulmask_and;
         fulmask_or = nfulmask_or | pfulmask_or;
         fulmask_and = nfulmask_and & pfulmask_and;
         pfulmask_or = nfulmask_or;
@@ -721,7 +763,8 @@ void fill_in_points_cluedo(long bstl_x, long bstl_y, struct MinMax *mm)
         if ((fulmask_or & 0x10000) == 0)
             lightness = game.lish.subtile_lightness[get_subtile_number(stl_x, stl_y+1)];
 
-        long hmin, hmax;
+        long hmin;
+        long hmax;
         hmax = height_masks[fulmask_or & 0xff];
         hmin = floor_height[fulmask_and & 0xff];
         struct EngineCoord *ecord;
@@ -786,8 +829,10 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
     if ((bstl_y < 0) || (bstl_y > map_subtiles_y-1)) {
         return;
     }
-    long mmin, mmax;
-    TbBool clip_min, clip_max;
+    long mmin;
+    long mmax;
+    TbBool clip_min;
+    TbBool clip_max;
     mmin = min(mm[0].min,mm[1].min);
     mmax = max(mm[0].max,mm[1].max);
     clip_min = false;
@@ -803,10 +848,12 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
     if (mmax < mmin) {
         return;
     }
-    MapSubtlCoord stl_x, stl_y;
+    MapSubtlCoord stl_x;
+    MapSubtlCoord stl_y;
     stl_y = bstl_y;
     stl_x = mmin + bstl_x;
-    TbBool lim_min, lim_max;
+    TbBool lim_min;
+    TbBool lim_max;
     lim_min = (stl_y <= 0);
     lim_max = (stl_y >= map_subtiles_y-1);
     TbBool clip;
@@ -822,9 +869,11 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
     }
     struct Map *mapblk;
     struct Column *col;
-    unsigned long pfulmask_or, pfulmask_and;
+    unsigned long pfulmask_or;
+    unsigned long pfulmask_and;
     {
-        unsigned long mask_cur, mask_yp;
+        unsigned long mask_cur;
+        unsigned long mask_yp;
         mask_cur = mask_unrev;
         mask_yp = mask_unrev;
         mapblk = get_map_block_at(stl_x-1, stl_y+1);
@@ -852,7 +901,9 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
     const struct Camera *cam;
     cam = myplyr->acamera;
     long hpos;
-    long view_x, view_y, view_z;
+    long view_x;
+    long view_y;
+    long view_z;
     int zoom;
     int hview_z;
     zoom = cam->zoom / pixel_size;
@@ -878,11 +929,16 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
     if (hview_z >= 11232) {
         hview_z = 11232;
     }
-    long eview_w, eview_h, eview_z;
+    long eview_w;
+    long eview_h;
+    long eview_z;
     long hview_y;
     long *randmis;
-    int dview_w, dview_h, dview_z;
-    int dhview_y, dhview_z;
+    int dview_w;
+    int dview_h;
+    int dview_z;
+    int dhview_y;
+    int dhview_z;
 
     eview_w = view_x << 8;
     hview_y = view_y << 8;
@@ -891,12 +947,15 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
     dhview_z = camera_matrix.r[2].v[0] >> 7;
     dview_h = -(zoom * camera_matrix.r[1].v[1]) >> 14;
     dview_z = camera_matrix.r[2].v[1] >> 7;
-    int wib_x, wib_y, wib_v;
+    int wib_x;
+    int wib_y;
+    int wib_v;
     wib_y = (stl_y + 1) & 3;
     int idxx;
     for (idxx=mmax-mmin+1; idxx > 0; idxx--)
     {
-        unsigned long mask_cur, mask_yp;
+        unsigned long mask_cur;
+        unsigned long mask_yp;
         mask_cur = mask_unrev;
         mask_yp = mask_unrev;
         mapblk = get_map_block_at(stl_x, stl_y+1);
@@ -921,10 +980,12 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
             if (lim_max)
                 mask_yp = 0;
         }
-        unsigned long nfulmask_or, nfulmask_and;
+        unsigned long nfulmask_or;
+        unsigned long nfulmask_and;
         nfulmask_or = mask_cur | mask_yp;
         nfulmask_and = mask_cur & mask_yp;
-        unsigned long fulmask_or, fulmask_and;
+        unsigned long fulmask_or;
+        unsigned long fulmask_and;
         fulmask_or = nfulmask_or | pfulmask_or;
         fulmask_and = nfulmask_and & pfulmask_and;
         pfulmask_or = nfulmask_or;
@@ -933,7 +994,8 @@ void fill_in_points_isometric(long bstl_x, long bstl_y, struct MinMax *mm)
         lightness = 0;
         if ((fulmask_or & 0x10000) == 0)
             lightness = game.lish.subtile_lightness[get_subtile_number(stl_x, stl_y+1)];
-        long hmin, hmax;
+        long hmin;
+        long hmax;
         hmax = height_masks[fulmask_or & 0xff];
         hmin = floor_height[fulmask_and & 0xff];
         struct EngineCoord *ecord;
@@ -1016,8 +1078,11 @@ void frame_wibble_generate(void)
         zoom = cam->zoom / pixel_size;
     }
 
-    int zm00, zm02;
-    int zm10, zm11, zm12;
+    int zm00;
+    int zm02;
+    int zm10;
+    int zm11;
+    int zm12;
     zm00 = zoom * camera_matrix.r[0].v[0] >> 14;
     zm02 = zoom * camera_matrix.r[0].v[2] >> 14;
     zm10 = zoom * camera_matrix.r[1].v[0] >> 14;
@@ -1065,7 +1130,8 @@ void do_perspective_rotation(long x, long y, long z)
     struct PlayerInfo *player;
     struct EngineCoord epos;
     long zoom;
-    long engine_w,engine_h;
+    long engine_w;
+    long engine_h;
     player = get_my_player();
     zoom = camera_zoom / pixel_size;
     engine_w = player->engine_window_width/pixel_size;
@@ -1105,7 +1171,8 @@ void find_gamut(void)
     SYNCDBG(19,"Starting");
     //_DK_find_gamut(); return;
     {
-        long cell_cur, cell_lim;
+        long cell_cur;
+        long cell_lim;
         struct MinMax *mml;
         struct MinMax *mmr;
         cell_lim = cells_away + 1;
@@ -1128,20 +1195,26 @@ void find_gamut(void)
         return;
     }
 
-    int angle_sin, angle_cos;
+    int angle_sin;
+    int angle_cos;
     angle_sin = LbSinL(cam_map_angle);
     angle_cos = LbCosL(cam_map_angle);
-    int cells_w, cells_h;
+    int cells_w;
+    int cells_h;
     cells_h = 6 * angle_cos >> 16;
     cells_w = -6 * angle_sin >> 16;
-    int scr_w1, scr_h1, scr_w2, scr_h2;
+    int scr_w1;
+    int scr_h1;
+    int scr_w2;
+    int scr_h2;
     long screen_dist;
     screen_dist = (lbDisplay.PhysicalScreenWidth << 7) / lens;
     scr_w1 = cells_w + ((screen_dist * angle_cos - (angle_sin << 8)) >> 16);
     scr_h1 = cells_h + (((angle_cos << 8) + screen_dist * angle_sin) >> 16);
     scr_w2 = cells_w + ((-screen_dist * angle_cos - (angle_sin << 8)) >> 16);
     scr_h2 = cells_h + (((angle_cos << 8) - screen_dist * angle_sin) >> 16);
-    int mbase, delta;
+    int mbase;
+    int delta;
     struct MinMax *mm;
     int cell_curr;
     if (scr_h1 < cells_h)
@@ -1253,7 +1326,9 @@ void fiddle_half_gamut(long start_stl_x, long start_stl_y, long step, long a4)
 {
     //_DK_fiddle_half_gamut(a1, a2, a3, a4);
     long end_stl_x;
-    long stl_xc, stl_xp, stl_xn;
+    long stl_xc;
+    long stl_xp;
+    long stl_xn;
 
     end_stl_x = start_stl_x + minmaxs[32].min;
     for (stl_xc=start_stl_x; 1; stl_xc--)
@@ -1541,8 +1616,12 @@ void fiddle_half_gamut(long start_stl_x, long start_stl_y, long step, long a4)
 
 void fiddle_gamut_find_limits(long *floor_x, long *floor_y, long ewwidth, long ewheight, long ewzoom)
 {
-    long len_01,len_02,len_13,len_23;
-    long tmp_y,tmp_x;
+    long len_01;
+    long len_02;
+    long len_13;
+    long len_23;
+    long tmp_y;
+    long tmp_x;
     long i;
     get_floor_pointed_at(ewwidth + ewzoom, -ewzoom, &floor_y[2], &floor_x[2]);
     get_floor_pointed_at(ewwidth + ewzoom, ewheight + ewzoom, &floor_y[1], &floor_x[1]);
@@ -1636,7 +1715,10 @@ void fiddle_gamut_set_base(long *floor_x, long *floor_y, long pos_x, long pos_y)
 void fiddle_gamut_set_minmaxes(long *floor_x, long *floor_y, long max_tiles)
 {
     struct MinMax *mm;
-    long mlimit,bormul,bormuh,borinc;
+    long mlimit;
+    long bormul;
+    long bormuh;
+    long borinc;
     short bordec;
     long midx;
     midx = 0;
@@ -1754,7 +1836,9 @@ void fiddle_gamut_set_minmaxes(long *floor_x, long *floor_y, long max_tiles)
 void fiddle_gamut(long pos_x, long pos_y)
 {
     struct PlayerInfo *player;
-    long ewwidth,ewheight,ewzoom;
+    long ewwidth;
+    long ewheight;
+    long ewzoom;
     long floor_x[4];
     long floor_y[4];
     player = get_my_player();
@@ -1843,9 +1927,11 @@ void create_line_const_z(unsigned char color, long pos_z, long beg_x, long end_x
 {
 	struct EngineCoord end;
 	struct EngineCoord start;
-	long vec_x, vec_y;
-	long pos_x, pos_y;
-	vec_x = end_x - beg_x;
+    long vec_x;
+    long vec_y;
+    long pos_x;
+    long pos_y;
+    vec_x = end_x - beg_x;
 	vec_y = end_y - beg_y;
 	create_box_coords(&start, beg_x, beg_y, pos_z);
 
@@ -1960,9 +2046,12 @@ void create_line_const_yz(long pos_y, long pos_z, long start_x, long end_x)
 
 void create_map_volume_box(long x, long y, long z)
 {
-    long box_xs,box_xe;
-    long box_ys,box_ye;
-    long box_zs,box_ze;
+    long box_xs;
+    long box_xe;
+    long box_ys;
+    long box_ye;
+    long box_zs;
+    long box_ze;
     long i;
 
     box_xs = map_volume_box.beg_x - x;
@@ -2096,7 +2185,9 @@ long find_closest_lights(const struct Coord3d *pos, struct NearestLights *nlgt)
 void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct Coord3d *pos)
 {
     //_DK_create_shadows(thing, ecor, pos); return;
-    short mv_angle, sh_angle, angle;
+    short mv_angle;
+    short sh_angle;
+    short angle;
     long dist_sq;
     struct EngineCoord ecor1;
     struct EngineCoord ecor2;
@@ -2113,17 +2204,31 @@ void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct Coord3
     if (dist_sq > 31) {
         dist_sq = 31;
     }
-    short dim_ow,dim_oh,dim_th,dim_tw;
+    short dim_ow;
+    short dim_oh;
+    short dim_th;
+    short dim_tw;
     get_keepsprite_unscaled_dimensions(thing->anim_sprite, angle, thing->field_48, &dim_ow, &dim_oh, &dim_tw, &dim_th);
     {
-        int base_x, base_y, base_z;
-        int angle_sin, angle_cos;
+        int base_x;
+        int base_y;
+        int base_z;
+        int angle_sin;
+        int angle_cos;
         base_z = 8 * dim_tw;
         base_y = 8 * (6 - dim_oh - dim_th);
         angle_cos = LbCosL(sh_angle);
         angle_sin = LbSinL(sh_angle);
-        int base_th, base_tw;
-        int shift_a, shift_b, shift_c, shift_d, shift_e, shift_f, shift_g, shift_h;
+        int base_th;
+        int base_tw;
+        int shift_a;
+        int shift_b;
+        int shift_c;
+        int shift_d;
+        int shift_e;
+        int shift_f;
+        int shift_g;
+        int shift_h;
         shift_a = base_z * angle_cos;
         shift_b = base_y * angle_sin;
         base_x = ecor->x;
@@ -2176,7 +2281,8 @@ void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct Coord3
     kspr->b.kind = 12;
     buckets[bckt_idx] = (struct BasicQ *)kspr;
 
-    int pdim_w, pdim_h;
+    int pdim_w;
+    int pdim_h;
     pdim_w = 0;
     pdim_h = (dim_oh - 1) << 16;
     kspr->p1.field_0 = ecor1.view_width;
@@ -2249,7 +2355,31 @@ void create_shadows(struct Thing *thing, struct EngineCoord *ecor, struct Coord3
 
 void create_status_box(struct Thing *thing, struct EngineCoord *ecor)
 {
-    _DK_create_status_box(thing, ecor); return;
+    //_DK_create_status_box(thing, ecor); return;
+    struct EngineCoord coord = *ecor;
+    coord.y += (uint16_t)thing->clipbox_size_yz + shield_offset[thing->model];
+    rotpers(&coord, &camera_matrix);
+    if (getpoly >= poly_pool_end)
+        return;
+    int bckt_idx = coord.z / 16;
+    if (!lens_mode)
+        bckt_idx = 1;
+    if (bckt_idx < 0)
+        bckt_idx = 0;
+    else if (bckt_idx > BUCKETS_COUNT-2)
+        bckt_idx = BUCKETS_COUNT-2;
+
+    struct BasicUnk14* poly = (struct BasicUnk14*)getpoly;
+    if (getpoly >= poly_pool_end)
+        return;
+    getpoly += sizeof(struct BasicUnk14);
+    poly->b.next = buckets[bckt_idx];
+    poly->b.kind = QK_StatusSprites;
+    buckets[bckt_idx] = (struct BasicQ *)poly;
+    poly->thing = thing;
+    poly->x = coord.view_width;
+    poly->y = coord.view_height;
+    poly->z = coord.z;
 }
 
 void do_a_plane_of_engine_columns_perspective(long stl_x, long stl_y, long plane_start, long plane_end)
@@ -2259,13 +2389,18 @@ void do_a_plane_of_engine_columns_perspective(long stl_x, long stl_y, long plane
     struct Map *mapblk;
     struct Map *sib_mapblk;
     struct Column *sib_colmn;
-    unsigned short textr_idx,height_bit;
+    unsigned short textr_idx;
+    unsigned short height_bit;
     unsigned long center_block_idx;
-    long fepos,bepos,ecpos;
-    long clip_start,clip_end;
+    long fepos;
+    long bepos;
+    long ecpos;
+    long clip_start;
+    long clip_end;
     struct CubeAttribs *texturing;
     unsigned short *cubenum_ptr;
-    long i,n;
+    long i;
+    long n;
     if ((stl_y <= 0) || (stl_y >= 255))
         return;
     clip_start = plane_start;
@@ -2292,7 +2427,11 @@ void do_a_plane_of_engine_columns_perspective(long stl_x, long stl_y, long plane
             colmn = get_map_column(mapblk);
         }
         // Retrieve solidmasks for surrounding area
-        unsigned short solidmsk_center,solidmsk_top,solidmsk_bottom,solidmsk_left,solidmsk_right;
+        unsigned short solidmsk_center;
+        unsigned short solidmsk_top;
+        unsigned short solidmsk_bottom;
+        unsigned short solidmsk_left;
+        unsigned short solidmsk_right;
         solidmsk_center = colmn->solidmask;
         solidmsk_top = blank_colmn->solidmask;
         solidmsk_right = blank_colmn->solidmask;
@@ -2430,7 +2569,8 @@ void do_a_plane_of_engine_columns_cluedo(long stl_x, long stl_y, long plane_star
     if ((stl_y < 1) || (stl_y > 254)) {
         return;
     }
-    long xaval, xbval;
+    long xaval;
+    long xbval;
     xaval = plane_start;
     if (stl_x + plane_start < 1) {
         xaval = 1 - stl_x;
@@ -2439,7 +2579,8 @@ void do_a_plane_of_engine_columns_cluedo(long stl_x, long stl_y, long plane_star
     if (stl_x + plane_end > 255) {
         xbval = 255 - stl_x;
     }
-    int xidx, xdelta;
+    int xidx;
+    int xdelta;
     xdelta = xbval - xaval;
     const struct Column *unrev_colmn;
     unrev_colmn = get_column(game.unrevealed_column_idx);
@@ -2448,7 +2589,12 @@ void do_a_plane_of_engine_columns_cluedo(long stl_x, long stl_y, long plane_star
         struct Map *cur_mapblk;
         cur_mapblk = get_map_block_at(stl_x + xaval + xidx, stl_y);
         // Get solidmasks of sibling columns
-        unsigned short solidmsk_cur_raw, solidmsk_cur, solidmsk_back, solidmsk_front, solidmsk_left, solidmsk_right;
+        unsigned short solidmsk_cur_raw;
+        unsigned short solidmsk_cur;
+        unsigned short solidmsk_back;
+        unsigned short solidmsk_front;
+        unsigned short solidmsk_left;
+        unsigned short solidmsk_right;
         solidmsk_cur_raw = unrev_colmn->solidmask;
         solidmsk_cur = unrev_colmn->solidmask & 3;
         solidmsk_back = unrev_colmn->solidmask & 3;
@@ -2571,7 +2717,7 @@ void do_a_plane_of_engine_columns_cluedo(long stl_x, long stl_y, long plane_star
         {
             int ncor_raw;
             ncor_raw = floor_height[solidmsk_cur_raw];
-            if ((cur_mapblk->flags & (SlbAtFlg_Unk80|SlbAtFlg_Unk04)) == 0)
+            if ((cur_mapblk->flags & (SlbAtFlg_TaggedValuable|SlbAtFlg_Unexplored)) == 0)
             {
                 if ((ncor_raw > 0) && (ncor_raw <= COLUMN_STACK_HEIGHT))
                 {
@@ -2592,7 +2738,7 @@ void do_a_plane_of_engine_columns_cluedo(long stl_x, long stl_y, long plane_star
             }
         } else
         {
-            if ((cur_mapblk->flags & SlbAtFlg_Unk04) == 0)
+            if ((cur_mapblk->flags & SlbAtFlg_Unexplored) == 0)
             {
                 do_a_gpoly_gourad_tr(&bec[0].cors[0], &bec[1].cors[0], &fec[1].cors[0], cur_colmn->baseblock, -1);
                 do_a_gpoly_gourad_bl(&fec[1].cors[0], &fec[0].cors[0], &bec[0].cors[0], cur_colmn->baseblock, -1);
@@ -2618,8 +2764,10 @@ void do_a_plane_of_engine_columns_isometric(long stl_x, long stl_y, long plane_s
     if ((stl_y < 1) || (stl_y > 254)) {
         return;
     }
-    long xaval, xbval;
-    TbBool xaclip, xbclip;
+    long xaval;
+    long xbval;
+    TbBool xaclip;
+    TbBool xbclip;
     xaval = plane_start;
     xaclip = 0;
     xbclip = 0;
@@ -2632,7 +2780,8 @@ void do_a_plane_of_engine_columns_isometric(long stl_x, long stl_y, long plane_s
         xbclip = 1;
         xbval = map_subtiles_x - stl_x;
     }
-    int xidx, xdelta;
+    int xidx;
+    int xdelta;
     xdelta = xbval - xaval;
     const struct Column *unrev_colmn;
     unrev_colmn = get_column(game.unrevealed_column_idx);
@@ -2653,7 +2802,11 @@ void do_a_plane_of_engine_columns_isometric(long stl_x, long stl_y, long plane_s
             cur_colmn = get_map_column(cur_mapblk);
         }
         // Get solidmasks of sibling columns
-        unsigned short solidmsk_cur, solidmsk_back, solidmsk_front, solidmsk_left, solidmsk_right;
+        unsigned short solidmsk_cur;
+        unsigned short solidmsk_back;
+        unsigned short solidmsk_front;
+        unsigned short solidmsk_left;
+        unsigned short solidmsk_right;
         solidmsk_cur = cur_colmn->solidmask;
         solidmsk_back = unrev_colmn->solidmask;
         solidmsk_right = unrev_colmn->solidmask;
@@ -2744,7 +2897,7 @@ void do_a_plane_of_engine_columns_isometric(long stl_x, long stl_y, long plane_s
         ncor = floor_height[solidmsk_cur];
         if (ncor > 0)
         {
-            if ((cur_mapblk->flags & (SlbAtFlg_Unk80|SlbAtFlg_Unk04)) == 0)
+            if ((cur_mapblk->flags & (SlbAtFlg_TaggedValuable|SlbAtFlg_Unexplored)) == 0)
             {
                 struct CubeAttribs * cubed;
                 cubed = &game.cubes_data[*(short *)((char *)&cur_colmn->baseblock + 2 * ncor + 1)];
@@ -2762,7 +2915,7 @@ void do_a_plane_of_engine_columns_isometric(long stl_x, long stl_y, long plane_s
             }
         } else
         {
-            if ((cur_mapblk->flags & SlbAtFlg_Unk04) == 0)
+            if ((cur_mapblk->flags & SlbAtFlg_Unexplored) == 0)
             {
                 do_a_gpoly_gourad_tr(&bec[0].cors[0], &bec[1].cors[0], &fec[1].cors[0], cur_colmn->baseblock, -1);
                 do_a_gpoly_gourad_bl(&fec[1].cors[0], &fec[0].cors[0], &bec[0].cors[0], cur_colmn->baseblock, -1);
@@ -2804,8 +2957,11 @@ void draw_engine_number(struct Number *num)
     struct PlayerInfo *player;
     unsigned short flg_mem;
     struct TbSprite *spr;
-    long val,ndigits;
-    long w,h,pos_x;
+    long val;
+    long ndigits;
+    long w;
+    long h;
+    long pos_x;
     flg_mem = lbDisplay.DrawFlags;
     player = get_my_player();
     lbDisplay.DrawFlags &= ~Lb_SPRITE_FLIP_HORIZ;
@@ -2879,7 +3035,8 @@ unsigned short choose_health_sprite(struct Thing *thing)
 {
     struct CreatureControl *cctrl;
     cctrl = creature_control_get_from_thing(thing);
-    HitPoints health, maxhealth;
+    HitPoints health;
+    HitPoints maxhealth;
     int color_idx;
     health = thing->health;
     maxhealth = cctrl->max_health;
@@ -2922,7 +3079,8 @@ void draw_status_sprites(long scrpos_x, long scrpos_y, struct Thing *thing, long
       cctrl->field_47 = 40;
     }
 
-    short health_spridx,state_spridx;
+    short health_spridx;
+    short state_spridx;
     signed short anger_spridx;
 
     anger_spridx = 0;
@@ -3010,7 +3168,8 @@ void draw_status_sprites(long scrpos_x, long scrpos_y, struct Thing *thing, long
     }
     int h_add;
     h_add = 0;
-    int w, h;
+    int w;
+    int h;
     struct TbSprite *spr;
     int bs_units_per_px;
     spr = &button_sprite[70];
@@ -3108,7 +3267,8 @@ void draw_room_flag_top(long x, long y, int units_per_px, const struct Room *roo
         bar_fill = ROOM_FLAG_PROGRESS_BAR_WIDTH * room->health / compute_room_max_health(room->slabs_count, room->efficiency);
         bar_empty = ROOM_FLAG_PROGRESS_BAR_WIDTH - bar_fill;
     }
-    int bar_width, bar_height;
+    int bar_width;
+    int bar_height;
     bar_width = (2 * bar_empty * units_per_px + 8) / 16;
     // Compute height in a way which will assure covering whole bar area
     bar_height = (5 * units_per_px - 8) / 16;
@@ -3191,9 +3351,23 @@ void draw_map_who(struct RotoSpr *spr)
 
 void draw_unkn09(struct BasicUnk09 *unk09)
 {
-    struct XYZ coord_a,coord_b,coord_c,coord_d,coord_e;
-    struct PolyPoint point_a,point_b,point_c,point_d,point_e,
-        point_f,point_g,point_h,point_i,point_j,point_k,point_l;
+    struct XYZ coord_a;
+    struct XYZ coord_b;
+    struct XYZ coord_c;
+    struct XYZ coord_d;
+    struct XYZ coord_e;
+    struct PolyPoint point_a;
+    struct PolyPoint point_b;
+    struct PolyPoint point_c;
+    struct PolyPoint point_d;
+    struct PolyPoint point_e;
+    struct PolyPoint point_f;
+    struct PolyPoint point_g;
+    struct PolyPoint point_h;
+    struct PolyPoint point_i;
+    struct PolyPoint point_j;
+    struct PolyPoint point_k;
+    struct PolyPoint point_l;
     vec_map = block_ptrs[unk09->block];
     switch (unk09->subtype)
     {
@@ -3973,7 +4147,9 @@ void display_drawlist(void)
       struct RoomFlag *roomFlg;
     } item;
     long bucket_num;
-    struct PolyPoint point_a,point_b,point_c;
+    struct PolyPoint point_a;
+    struct PolyPoint point_b;
+    struct PolyPoint point_c;
     SYNCDBG(9,"Starting");
     // Color rendering array pointers used by draw_keepersprite()
     render_fade_tables = pixmap.fade_tables;
@@ -4128,7 +4304,7 @@ void display_drawlist(void)
                   // Status sprites grow smaller slower than zoom
                   int status_zoom;
                   status_zoom = (camera_zoom+CAMERA_ZOOM_MAX)/2;
-                  draw_status_sprites(item.unk14->field_C, item.unk14->field_10, item.unk14->thing, status_zoom*16/units_per_pixel);
+                  draw_status_sprites(item.unk14->x, item.unk14->y, item.unk14->thing, status_zoom*16/units_per_pixel);
               }
           }
           break;
@@ -4255,10 +4431,14 @@ void draw_view_map_plane(long aposc, long bposc, long xcell, long ycell)
 void draw_view(struct Camera *cam, unsigned char a2)
 {
     long zoom_mem;
-    long x,y,z;
-    long xcell,ycell;
+    long x;
+    long y;
+    long z;
+    long xcell;
+    long ycell;
     long i;
-    long aposc,bposc;
+    long aposc;
+    long bposc;
     SYNCDBG(9,"Starting");
     camera_zoom = scale_camera_zoom_to_screen(cam->zoom);
     zoom_mem = cam->zoom;//TODO [zoom] remove when all cam->zoom will be changed to camera_zoom
@@ -4455,9 +4635,9 @@ void display_fast_drawlist(struct Camera *cam)
                 break;
             case QK_StatusSprites:
                 if (pixel_size == 1)
-                    draw_status_sprites(item.unk14->field_C, item.unk14->field_10, item.unk14->thing, 48*256);
+                    draw_status_sprites(item.unk14->x, item.unk14->y, item.unk14->thing, 48*256);
                 else
-                    draw_status_sprites(item.unk14->field_C, item.unk14->field_10, item.unk14->thing, 16*256);
+                    draw_status_sprites(item.unk14->x, item.unk14->y, item.unk14->thing, 16*256);
                 break;
             case QK_TextureQuad:
                 draw_texturedquad_block(item.txquad);
@@ -4552,10 +4732,10 @@ void create_status_box_element(struct Thing *thing, long a2, long a3, long a4, l
     poly->thing = thing;
     if (pixel_size > 0)
     {
-        poly->field_C = a2 / pixel_size;
-        poly->field_10 = a3 / pixel_size;
+        poly->x = a2 / pixel_size;
+        poly->y = a3 / pixel_size;
     }
-    poly->field_14 = a4;
+    poly->z = a4;
 }
 
 void create_fast_view_status_box(struct Thing *thing, long x, long y)
@@ -4682,11 +4862,13 @@ void add_room_flag_top_to_polypool(long x, long y, long room_idx, long bckt_idx)
 
 void prepare_lightness_intensity_array(long stl_x, long stl_y, long *arrp, long base_lightness)
 {
-    long i,n;
+    long i;
+    long n;
     n = 4 * stl_x + 17 * stl_y;
     for (i=0; i < 9; i++)
     {
-        long rndi,nval;
+        long rndi;
+        long nval;
         if ((base_lightness <= 256) || (base_lightness > 15872))
         {
             nval = base_lightness;
@@ -4709,9 +4891,11 @@ void draw_element(struct Map *map, long lightness, long stl_x, long stl_y, long 
     struct Map *mapblk;
     long lightness_arr[4][9];
     long bckt_idx;
-    long cube_itm,delta_y;
+    long cube_itm;
+    long delta_y;
     long tc; // top cube index
-    long x,y;
+    long x;
+    long y;
     long i;
     myplyr = get_my_player();
     cube_itm = (a8 + 2) & 3;
@@ -4766,7 +4950,7 @@ void draw_element(struct Map *map, long lightness, long stl_x, long stl_y, long 
       if ((col->baseblock != 0) && (col->cubes[0] == 0))
       {
           *ymax = pos_y;
-          if ((mapblk->flags & SlbAtFlg_Unk04) != 0)
+          if ((mapblk->flags & SlbAtFlg_Unexplored) != 0)
           {
               add_textruredquad_to_polypool(pos_x, pos_y, col->baseblock, a7, 0,
                   2097152, 0, bckt_idx);
@@ -4802,12 +4986,12 @@ void draw_element(struct Map *map, long lightness, long stl_x, long stl_y, long 
       if (*ymax > i)
       {
         *ymax = i;
-        if ((mapblk->flags & SlbAtFlg_Unk80) != 0)
+        if ((mapblk->flags & SlbAtFlg_TaggedValuable) != 0)
         {
           add_textruredquad_to_polypool(pos_x, i, unkstrcp->texture_id[4], a7, a8,
               2097152, 1, bckt_idx);
         } else
-        if ((mapblk->flags & SlbAtFlg_Unk04) != 0)
+        if ((mapblk->flags & SlbAtFlg_Unexplored) != 0)
         {
           add_textruredquad_to_polypool(pos_x, i, unkstrcp->texture_id[4], a7, a8,
               2097152, 0, bckt_idx);
@@ -4857,10 +5041,12 @@ void draw_element(struct Map *map, long lightness, long stl_x, long stl_y, long 
 
 unsigned short get_thing_shade(struct Thing *thing)
 {
-    MapSubtlCoord stl_x,stl_y;
+    MapSubtlCoord stl_x;
+    MapSubtlCoord stl_y;
     long lgh[2][2]; // the dimensions are lgh[y][x]
     long shval;
-    long fract_x,fract_y;
+    long fract_x;
+    long fract_y;
     stl_x = thing->mappos.x.stl.num;
     stl_y = thing->mappos.y.stl.num;
     fract_x = thing->mappos.x.stl.pos;
@@ -4889,7 +5075,8 @@ unsigned short get_thing_shade(struct Thing *thing)
 
 void lock_keepersprite(unsigned short kspr_idx)
 {
-    int frame_num,frame_count;
+    int frame_num;
+    int frame_count;
     struct KeeperSprite *kspr_arr;
     kspr_arr = &creature_table[kspr_idx];
     if (kspr_arr->Rotable) {
@@ -4909,7 +5096,8 @@ void lock_keepersprite(unsigned short kspr_idx)
 
 void unlock_keepersprite(unsigned short kspr_idx)
 {
-    int frame_num,frame_count;
+    int frame_num;
+    int frame_count;
     struct KeeperSprite *kspr_arr;
     kspr_arr = &creature_table[kspr_idx];
     if (kspr_arr->Rotable) {
@@ -4973,7 +5161,8 @@ long load_single_frame(unsigned short kspr_idx)
 
 long load_keepersprite_if_needed(unsigned short kspr_idx)
 {
-    int frame_num,frame_count;
+    int frame_num;
+    int frame_count;
     struct KeeperSprite *kspr_arr;
     kspr_arr = &creature_table[kspr_idx];
     if (kspr_arr->Rotable) {
@@ -5012,7 +5201,8 @@ long heap_manage_keepersprite(unsigned short kspr_idx)
 void draw_keepersprite(long x, long y, long w, long h, long kspr_idx)
 {
     struct TbSprite sprite;
-    long cut_w,cut_h;
+    long cut_w;
+    long cut_h;
     TbSpriteData *kspr_item;
     if ((kspr_idx < 0) || (kspr_idx >= KEEPSPRITE_LENGTH)) {
         WARNDBG(9,"Invalid KeeperSprite %ld at (%ld,%ld) size (%ld,%ld) alpha %d",kspr_idx,x,y,w,h,(int)EngineSpriteDrawUsingAlpha);
@@ -5053,8 +5243,10 @@ void set_thing_pointed_at(struct Thing *thing)
 
 void draw_single_keepersprite_omni_xflip(long kspos_x, long kspos_y, struct KeeperSprite *kspr, long kspr_idx, long scale)
 {
-    long x,y;
-    long src_dy,src_dx;
+    long x;
+    long y;
+    long src_dy;
+    long src_dx;
     src_dy = (long)kspr->FrameHeight;
     src_dx = (long)kspr->FrameWidth;
     x = src_dx - (long)kspr->FrameOffsW - (long)kspr->SWidth;
@@ -5089,8 +5281,10 @@ void draw_single_keepersprite_omni_xflip(long kspos_x, long kspos_y, struct Keep
 
 void draw_single_keepersprite_omni(long kspos_x, long kspos_y, struct KeeperSprite *kspr, long kspr_idx, long scale)
 {
-    long x,y;
-    long src_dy,src_dx;
+    long x;
+    long y;
+    long src_dy;
+    long src_dx;
     src_dy = (long)kspr->FrameHeight;
     src_dx = (long)kspr->FrameWidth;
     x = kspr->FrameOffsW;
@@ -5125,8 +5319,10 @@ void draw_single_keepersprite_omni(long kspos_x, long kspos_y, struct KeeperSpri
 
 void draw_single_keepersprite_xflip(long kspos_x, long kspos_y, struct KeeperSprite *kspr, long kspr_idx, long scale)
 {
-    long x,y;
-    long src_dy,src_dx;
+    long x;
+    long y;
+    long src_dy;
+    long src_dx;
     SYNCDBG(18,"Starting");
     src_dy = (long)kspr->SHeight;
     src_dx = (long)kspr->SWidth;
@@ -5163,8 +5359,10 @@ void draw_single_keepersprite_xflip(long kspos_x, long kspos_y, struct KeeperSpr
 
 void draw_single_keepersprite(long kspos_x, long kspos_y, struct KeeperSprite *kspr, long kspr_idx, long scale)
 {
-    long x,y;
-    long src_dy,src_dx;
+    long x;
+    long y;
+    long src_dy;
+    long src_dx;
     SYNCDBG(18,"Starting");
     src_dy = (long)kspr->SHeight;
     src_dx = (long)kspr->SWidth;
@@ -5199,18 +5397,27 @@ void draw_single_keepersprite(long kspos_x, long kspos_y, struct KeeperSprite *k
     SYNCDBG(18,"Finished");
 }
 
+// this function is called by draw_fastview_mapwho
+HOOK_DK_FUNC(process_keeper_sprite)
 void process_keeper_sprite(short x, short y, unsigned short kspr_base, short kspr_frame, unsigned char sprgroup, long scale)
 {
     struct KeeperSprite *creature_sprites;
     struct PlayerInfo *player;
     struct CreatureControl *cctrl;
     struct KeeperSprite *kspr;
-    long kspr_idx,draw_idx;
-    short dim_ow,dim_oh,dim_th,dim_tw;
-    long scaled_x,scaled_y;
+    long kspr_idx;
+    long draw_idx;
+    short dim_ow;
+    short dim_oh;
+    short dim_th;
+    short dim_tw;
+    long scaled_x;
+    long scaled_y;
     TbBool needs_xflip;
     long long lltemp;
-    long sprite_group,sprite_delta,cutoff;
+    long sprite_group;
+    long sprite_delta;
+    long cutoff;
     SYNCDBG(17,"At (%d,%d) opts %d %d %d %d",(int)x,(int)y,(int)kspr_base,(int)kspr_frame,(int)sprgroup,(int)scale);
     player = get_my_player();
 
@@ -5302,7 +5509,8 @@ void process_keeper_speedup_sprite(struct JontySpr *jspr, long angle, long scale
     long transp2;
     unsigned short graph_id2;
     unsigned long nframe2;
-    long add_x,add_y;
+    long add_x;
+    long add_y;
     thing = jspr->thing;
     player = get_my_player();
     switch (thing->model)
@@ -5358,7 +5566,9 @@ void prepare_jonty_remap_and_scale(long *scale, const struct JontySpr *jspr)
 {
     long i;
     struct Thing *thing;
-    long shade,shade_factor,fade;
+    long shade;
+    long shade_factor;
+    long fade;
     thing = jspr->thing;
     if (lens_mode == 0)
     {
@@ -5432,8 +5642,11 @@ void draw_mapwho_ariadne_path(struct Thing *thing)
 	{
 		wp_next = &arid->waypoints[i];
 
-		long beg_x, end_x, beg_y, end_y;
-		beg_x = (long)wp_prev->x.val - map_x_pos;
+        long beg_x;
+        long end_x;
+        long beg_y;
+        long end_y;
+        beg_x = (long)wp_prev->x.val - map_x_pos;
 		end_x = (long)wp_next->x.val - map_x_pos;
 		beg_y = map_y_pos - (long)wp_prev->y.val;
 		end_y = map_y_pos - (long)wp_next->y.val;
@@ -5448,7 +5661,8 @@ void draw_jonty_mapwho(struct JontySpr *jspr)
     unsigned char alpha_mem;
     struct PlayerInfo *player;
     struct Thing *thing;
-    long angle,scale;
+    long angle;
+    long scale;
     flg_mem = lbDisplay.DrawFlags;
     alpha_mem = EngineSpriteDrawUsingAlpha;
     thing = jspr->thing;
@@ -5672,8 +5886,10 @@ void draw_keepsprite_unscaled_in_buffer(unsigned short kspr_n, short angle, unsi
     struct KeeperSprite *kspr;
     unsigned int keepsprite_id;
     unsigned char *tmpbuf;
-    int skip_w,skip_h;
-    int fill_w,fill_h;
+    int skip_w;
+    int skip_h;
+    int fill_w;
+    int fill_h;
     TbBool flip_range;
     short quarter;
     int i;
@@ -5757,9 +5973,13 @@ void update_frontview_pointed_block(unsigned long laaa, unsigned char qdrant, lo
     struct Column *colmn;
     unsigned long mask;
     struct Map *mapblk;
-    long pos_x,pos_y;
-    long slb_x,slb_y;
-    long point_a,point_b,delta;
+    long pos_x;
+    long pos_y;
+    long slb_x;
+    long slb_y;
+    long point_a;
+    long point_b;
+    long delta;
     long i;
     SYNCDBG(16,"Starting");
     store_engine_window(&ewnd,1);
@@ -5813,11 +6033,15 @@ void update_frontview_pointed_block(unsigned long laaa, unsigned char qdrant, lo
 void create_frontview_map_volume_box(struct Camera *cam, unsigned char stl_width)
 {
     struct Coord3d pos;
-    long coord_x,coord_y,coord_z;
+    long coord_x;
+    long coord_y;
+    long coord_z;
     unsigned char orient;
     long i;
-    long slb_width,depth;
-    long vstart,vend;
+    long slb_width;
+    long depth;
+    long vstart;
+    long vend;
     long delta[4];
 
     pos.y.val = map_volume_box.beg_y;
@@ -5891,7 +6115,8 @@ void do_map_who_for_thing(struct Thing *thing)
         ecor.y = ((long)thing->field_60 - map_z_pos);
         if (thing_is_creature(thing) && ((thing->movement_flags & TMvF_Unknown04) == 0))
         {
-            int count, i;
+            int count;
+            int i;
             count = find_closest_lights(&thing->mappos, &nearlgt);
             for (i=0; i < count; i++) {
                 create_shadows(thing, &ecor, &nearlgt.coord[i]);
@@ -6012,7 +6237,9 @@ void do_map_who(short tnglist_idx)
 
 void draw_frontview_thing_on_element(struct Thing *thing, struct Map *map, struct Camera *cam)
 {
-    long cx,cy,cz;
+    long cx;
+    long cy;
+    long cz;
     if ((thing->field_4F & TF4F_Unknown01) != 0)
         return;
     switch (thing->field_50 >> 2)
@@ -6105,13 +6332,22 @@ void draw_frontview_engine(struct Camera *cam)
     TbGraphicsWindow grwnd;
     TbGraphicsWindow ewnd;
     unsigned char qdrant;
-    long px,py,qx,qy;
-    long w,h;
-    long pos_x,pos_y;
-    MapSubtlCoord stl_x,stl_y;
-    long lim_x,lim_y;
-    long cam_x,cam_y;
-    long long zoom,lbbb;
+    long px;
+    long py;
+    long qx;
+    long qy;
+    long w;
+    long h;
+    long pos_x;
+    long pos_y;
+    MapSubtlCoord stl_x;
+    MapSubtlCoord stl_y;
+    long lim_x;
+    long lim_y;
+    long cam_x;
+    long cam_y;
+    long long zoom;
+    long long lbbb;
     long i;
     SYNCDBG(9,"Starting");
     player = get_my_player();

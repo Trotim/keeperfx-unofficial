@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 /******************************************************************************/
-#if defined(WIN32)
+#if defined(_WIN32)
 
 #ifndef NULL
 #ifdef __cplusplus
@@ -159,16 +159,14 @@ void * LbStringCopy(char *dst, const char *src, const ulong dst_buflen)
 
 void * LbStringToLowerCopy(char *dst, const char *src, const ulong dst_buflen)
 {
-  int i;
-  char chr;
   if (dst_buflen < 1)
     return dst;
-  for (i=0; i < dst_buflen; i++)
+  for (int i = 0; i < dst_buflen; i++)
   {
-    chr = tolower(src[i]);
-    dst[i] = chr;
-    if (chr == '\0')
-      break;
+      char chr = tolower(src[i]);
+      dst[i] = chr;
+      if (chr == '\0')
+          break;
   }
   dst[dst_buflen-1]='\0';
   return dst;
@@ -224,17 +222,15 @@ int LbMemoryReset(void)
 unsigned char * LbMemoryAllocLow(ulong size)
 {
 //Simplified as we no longer need such memory routines
-    unsigned char *ptr;
-    ptr=(unsigned char *)malloc(size);
-    if (ptr != NULL)
-      memset(ptr,0,size);
-    return ptr;
+unsigned char* ptr = (unsigned char*)malloc(size);
+if (ptr != NULL)
+    memset(ptr, 0, size);
+return ptr;
 }
 
 unsigned char * LbMemoryAlloc(ulong size)
 {
-    unsigned char *ptr;
-    ptr=(unsigned char *)malloc(size);
+    unsigned char* ptr = (unsigned char*)malloc(size);
     if (ptr != NULL)
       memset(ptr,0,size);
     return ptr;
@@ -249,7 +245,7 @@ int LbMemoryFree(void *mem_ptr)
 
 short LbMemoryCheck(void)
 {
-#if defined(WIN32)
+#if defined(_WIN32)
   struct _MEMORYSTATUS msbuffer;
   msbuffer.dwLength = 32;
   GlobalMemoryStatus(&msbuffer);

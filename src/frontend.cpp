@@ -91,61 +91,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/******************************************************************************/
-DLLIMPORT void _DK_add_message(long plyr_idx, char *msg);
-DLLIMPORT unsigned long _DK_validate_versions(void);
-DLLIMPORT void _DK_versions_different_error(void);
-DLLIMPORT char _DK_get_button_area_input(struct GuiButton *gbtn, int);
-DLLIMPORT void _DK_fake_button_click(long btn_idx);
-DLLIMPORT void _DK_display_objectives(long,long,long);
-DLLIMPORT unsigned long _DK_toggle_status_menu(unsigned long);
-DLLIMPORT int _DK_frontend_load_data(void);
-DLLIMPORT void _DK_frontend_set_player_number(long plr_num);
-DLLIMPORT void _DK_initialise_tab_tags_and_menu(long menu_id);
-DLLIMPORT void _DK_frontend_save_continue_game(long lv_num, int a2);
-DLLIMPORT unsigned char _DK_a_menu_window_is_active(void);
-DLLIMPORT char _DK_game_is_busy_doing_gui(void);
-DLLIMPORT char _DK_menu_is_active(char idx);
-DLLIMPORT void _DK_get_player_gui_clicks(void);
-DLLIMPORT void _DK_init_gui(void);
-DLLIMPORT void _DK_gui_area_text(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_set_autopilot(struct GuiButton *gbtn);
-DLLIMPORT char _DK_update_menu_fade_level(struct GuiMenu *gmnu);
-DLLIMPORT void _DK_draw_menu_buttons(struct GuiMenu *gmnu);
-DLLIMPORT char _DK_create_menu(struct GuiMenu *mnu);
-DLLIMPORT char _DK_create_button(struct GuiMenu *gmnu, struct GuiButtonInit *gbinit);
-DLLIMPORT void _DK_maintain_loadsave(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_quit_game(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_area_slider(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_draw_icon(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_draw_slider(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_draw_small_slider(struct GuiButton *gbtn);
 
-DLLIMPORT void _DK_frontend_init_options_menu(struct GuiMenu *gmnu);
-DLLIMPORT void _DK_frontend_draw_text(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_change_state(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_draw_enter_text(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_draw_small_menu_button(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_toggle_computer_players(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_draw_computer_players(struct GuiButton *gbtn);
-DLLIMPORT void _DK_set_packet_start(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_area_scroll_window(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_go_to_event(struct GuiButton *gbtn);
-DLLIMPORT void _DK_maintain_zoom_to_event(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_close_objective(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_scroll_text_up(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_scroll_text_down(struct GuiButton *gbtn);
-DLLIMPORT void _DK_maintain_scroll_up(struct GuiButton *gbtn);
-DLLIMPORT void _DK_maintain_scroll_down(struct GuiButton *gbtn);
-DLLIMPORT void _DK_gui_scroll_text_down(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_start_new_game(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_load_continue_game(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_continue_game_maintain(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_main_menu_load_game_maintain(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_main_menu_netservice_maintain(struct GuiButton *gbtn);
-DLLIMPORT void _DK_frontend_main_menu_highscores_maintain(struct GuiButton *gbtn);
-DLLIMPORT void _DK_do_button_click_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Callback callback);
-DLLIMPORT void _DK_do_button_release_actions(struct GuiButton *gbtn, unsigned char *, Gf_Btn_Callback callback);
 /******************************************************************************/
 TbClockMSec gui_message_timeout = 0;
 char gui_message_text[TEXT_BUFFER_LENGTH];
@@ -436,7 +382,8 @@ TbBool a_menu_window_is_active(void)
 {
   if (no_of_active_menus <= 0)
     return false;
-  int i,k;
+  int i;
+  int k;
   for (i=0; i<no_of_active_menus; i++)
   {
       k = menu_stack[i];
@@ -471,7 +418,8 @@ TbBool frontend_font_string_draw(int scr_x, int scr_y, int dst_width, int dst_he
         units_per_px = 1;
     lbDisplay.DrawFlags = 0;
     LbTextSetFont(frontend_font[fnt_idx]);
-    int w,h;
+    int w;
+    int h;
     h = LbTextLineHeight() * units_per_px / 16;
     w = LbTextStringWidth(str) * units_per_px / 16;
     if (w > dst_width) w = dst_width;
@@ -570,7 +518,8 @@ void get_player_gui_clicks(void)
 void add_message(long plyr_idx, char *msg)
 {
     struct NetMessage *nmsg;
-    long i,k;
+    long i;
+    long k;
     i = net_number_of_messages;
     if (i >= NET_MESSAGES_COUNT)
     {
@@ -596,7 +545,8 @@ void add_message(long plyr_idx, char *msg)
 TbBool validate_versions(void)
 {
     struct PlayerInfo *player;
-    long i,ver;
+    long i;
+    long ver;
     ver = -1;
     for (i=0; i < NET_PLAYERS_COUNT; i++)
     {
@@ -698,7 +648,8 @@ short game_is_busy_doing_gui(void)
 TbBool get_button_area_input(struct GuiButton *gbtn, int modifiers)
 {
     char *str;
-    int key,outchar;
+    int key;
+    int outchar;
     TbLocChar vischar[4];
     //return _DK_get_button_area_input(gbtn, a2);
     strcpy(vischar," ");
@@ -1092,7 +1043,9 @@ void choose_spell(PowerKind pwkind, TextStringId tooltip_id)
 void frontend_draw_scroll_tab(struct GuiButton *gbtn, long scroll_offset, long first_elem, long last_elem)
 {
     struct TbSprite *spr;
-    long i,k,n;
+    long i;
+    long k;
+    long n;
     int units_per_px;
     units_per_px = simple_frontend_sprite_width_units_per_px(gbtn, 78, 100);
     spr = &frontend_sprite[78];
@@ -1132,7 +1085,9 @@ void draw_slider64k(long scr_x, long scr_y, int units_per_px, long width)
 {
     draw_bar64k(scr_x, scr_y, units_per_px, width);
     // Inner size
-    int base_x, base_y, base_w;
+    int base_x;
+    int base_y;
+    int base_w;
     base_w = width - 64*units_per_px/16;
     base_x = scr_x + 32*units_per_px/16;
     base_y = scr_y + 10*units_per_px/16;
@@ -1140,7 +1095,8 @@ void draw_slider64k(long scr_x, long scr_y, int units_per_px, long width)
         ERRORLOG("Bar is too small");
         return;
     }
-    int cur_x, cur_y;
+    int cur_x;
+    int cur_y;
     cur_x = base_x;
     cur_y = base_y;
     int end_x;
@@ -1188,9 +1144,12 @@ void gui_area_slider(struct GuiButton *gbtn)
 TbBool fronttestfont_draw(void)
 {
   const struct TbSprite *spr;
-  unsigned long i,k;
-  long w,h;
-  long x,y;
+  unsigned long i;
+  unsigned long k;
+  long w;
+  long h;
+  long x;
+  long y;
   SYNCDBG(9,"Starting");
   for (y=0; y < lbDisplay.GraphicsScreenHeight; y++)
     for (x=0; x < lbDisplay.GraphicsScreenWidth; x++)
@@ -1263,7 +1222,8 @@ void frontend_draw_slider(struct GuiButton *gbtn)
     }
     int fs_units_per_px;
     fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, 93, 100);
-    int scr_x, scr_y;
+    int scr_x;
+    int scr_y;
     scr_x = gbtn->scr_pos_x;
     scr_y = gbtn->scr_pos_y;
     struct TbSprite *spr;
@@ -1295,7 +1255,8 @@ void frontend_draw_small_slider(struct GuiButton *gbtn)
     }
     int fs_units_per_px;
     fs_units_per_px = simple_frontend_sprite_height_units_per_px(gbtn, 93, 100);
-    int scr_x, scr_y;
+    int scr_x;
+    int scr_y;
     scr_x = gbtn->scr_pos_x;
     scr_y = gbtn->scr_pos_y;
     struct TbSprite *spr;
@@ -1512,7 +1473,8 @@ void draw_scrolling_button_string(struct GuiButton *gbtn, const char *text)
 {
   struct TextScrollWindow *scrollwnd;
   unsigned short flg_mem;
-  long text_height,area_height;
+  long text_height;
+  long area_height;
   flg_mem = lbDisplay.DrawFlags;
   lbDisplay.DrawFlags &= ~Lb_TEXT_ONE_COLOR;
   lbDisplay.DrawFlags |= Lb_TEXT_HALIGN_CENTER;
@@ -1724,7 +1686,7 @@ void frontend_start_new_game(struct GuiButton *gbtn)
         ERRORLOG("Unable to start new campaign");
         return;
       }
-      frontend_set_state(FeSt_LAND_VIEW);
+      frontend_set_state(FeSt_CAMPAIGN_INTRO);
     } else
     { // If there's more campaigns, go to selection screen
       frontend_set_state(FeSt_CAMPAIGN_SELECT);
@@ -2586,6 +2548,7 @@ void frontend_shutdown_state(FrontendMenuState pstate)
     case FeSt_UNKNOWN09:
     case FeSt_LOAD_GAME:
     case FeSt_INTRO:
+    case FeSt_CAMPAIGN_INTRO:
     case FeSt_DEMO: //demo state (intro/credits)
     case FeSt_OUTRO:
     case FeSt_PACKET_DEMO:
@@ -2659,6 +2622,7 @@ FrontendMenuState frontend_setup_state(FrontendMenuState nstate)
       case FeSt_UNKNOWN09:
       case FeSt_LOAD_GAME:
       case FeSt_INTRO:
+      case FeSt_CAMPAIGN_INTRO:
       case FeSt_DEMO:
       case FeSt_OUTRO:
       case FeSt_PACKET_DEMO:
@@ -2754,7 +2718,8 @@ FrontendMenuState frontend_set_state(FrontendMenuState nstate)
 
 TbBool frontmainmnu_input(void)
 {
-    int mouse_x,mouse_y;
+    int mouse_x;
+    int mouse_y;
     // check if mouse position has changed
     mouse_x = GetMouseX();
     mouse_y = GetMouseY();
@@ -3081,7 +3046,8 @@ void spangle_button(struct GuiButton *gbtn)
     spr = &button_sprite[176];
     int bs_units_per_px;
     bs_units_per_px = 50 * units_per_pixel / spr->SHeight;
-    long x,y;
+    long x;
+    long y;
     unsigned long i;
     x = gbtn->pos_x + (gbtn->width >> 1)  - ((spr->SWidth*bs_units_per_px/16) / 2);
     y = gbtn->pos_y + (gbtn->height >> 1) - ((spr->SHeight*bs_units_per_px/16) / 2);
@@ -3164,6 +3130,9 @@ short frontend_draw(void)
         return 0;
     case FeSt_DEMO:
         demo();
+        return 0;
+    case FeSt_CAMPAIGN_INTRO:
+        campaign_intro();
         return 0;
     case FeSt_DRAG:
         drag_video();
@@ -3319,7 +3288,8 @@ void update_player_objectives(PlayerNumber plyr_idx)
 void display_objectives(PlayerNumber plyr_idx, long x, long y)
 {
     //_DK_display_objectives(plyr_idx,x,y);
-    long cor_x, cor_y;
+    long cor_x;
+    long cor_y;
     cor_y = 0;
     cor_x = 0;
     if ((x > 0) || (y > 0))
@@ -3364,6 +3334,7 @@ void frontend_update(short *finish_menu)
     switch ( frontend_menu_state )
     {
     case FeSt_MAIN_MENU:
+        StopMusicPlayer();
         frontend_button_info[8].font_index = (continue_game_option_available?1:3);
         //this uses original timing function for compatibility with frontend_set_state()
         if ( abs(LbTimerClock()-(long)time_last_played_demo) > MNU_DEMO_IDLE_TIME )
@@ -3374,6 +3345,8 @@ void frontend_update(short *finish_menu)
         break;
     case FeSt_LAND_VIEW:
         *finish_menu = frontmap_update();
+        break;
+    case FeSt_CAMPAIGN_INTRO:
         break;
     case FeSt_NET_SERVICE:
         frontnet_service_update();
@@ -3473,6 +3446,8 @@ FrontendMenuState get_menu_state_when_back_from_substate(FrontendMenuState subst
     case FeSt_NETLAND_VIEW:
         return FeSt_NET_SERVICE;
     case FeSt_TORTURE:
+    case FeSt_CAMPAIGN_INTRO:
+        return FeSt_LAND_VIEW;
     case FeSt_OUTRO:
         return FeSt_LEVEL_STATS;
     case FeSt_DRAG:

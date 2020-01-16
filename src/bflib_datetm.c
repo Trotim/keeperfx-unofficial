@@ -27,10 +27,10 @@
 #include "bflib_basics.h"
 #include "globals.h"
 
-#if defined(WIN32)
-//instead of #include <windows.h>
-#include <windef.h>
-#include <winbase.h>
+#if defined(_WIN32)
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 #ifdef __cplusplus
@@ -59,9 +59,8 @@ TbClockMSec LbTimerClock_1000(void)
  */
 TbClockMSec LbTimerClock_1024(void)
 {
-  clock_t cclk;
-  cclk = clock();
-  return cclk - (cclk>>6) - (cclk>>7);
+    clock_t cclk = clock();
+    return cclk - (cclk >> 6) - (cclk >> 7);
 }
 
 /**
@@ -135,21 +134,19 @@ TbResult LbDateTimeDecode(const time_t *datetime,struct TbDate *curr_date,struct
 
 inline void LbDoMultitasking(void)
 {
-#if defined(WIN32)
+#if defined(_WIN32)
     Sleep(LARGE_DELAY_TIME>>1); // This switches to other tasks
 #endif
 }
 
 TbBool __fastcall LbSleepFor(TbClockMSec delay)
 {
-  register TbClockMSec currclk;
-  register TbClockMSec endclk;
-  currclk=LbTimerClock();
-  endclk=currclk+delay;
-  while ((currclk+LARGE_DELAY_TIME) < endclk)
-  {
-    LbDoMultitasking();
-    currclk=LbTimerClock();
+    TbClockMSec currclk = LbTimerClock();
+    TbClockMSec endclk = currclk + delay;
+    while ((currclk + LARGE_DELAY_TIME) < endclk)
+    {
+        LbDoMultitasking();
+        currclk = LbTimerClock();
   }
   while (currclk < endclk)
     currclk=LbTimerClock();
@@ -158,12 +155,11 @@ TbBool __fastcall LbSleepFor(TbClockMSec delay)
 
 TbBool __fastcall LbSleepUntil(TbClockMSec endtime)
 {
-  register TbClockMSec currclk;
-  currclk=LbTimerClock();
-  while ((currclk+LARGE_DELAY_TIME) < endtime)
-  {
-    LbDoMultitasking();
-    currclk=LbTimerClock();
+    TbClockMSec currclk = LbTimerClock();
+    while ((currclk + LARGE_DELAY_TIME) < endtime)
+    {
+        LbDoMultitasking();
+        currclk = LbTimerClock();
   }
   while (currclk < endtime)
     currclk=LbTimerClock();

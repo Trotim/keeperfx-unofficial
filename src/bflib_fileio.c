@@ -34,12 +34,12 @@
 #include "bflib_basics.h"
 #include "bflib_datetm.h"
 
-#if defined(WIN32)||defined(DOS)||defined(GO32)
+#if defined(_WIN32)||defined(DOS)||defined(GO32)
 #include <dos.h>
 #include <direct.h>
 #endif
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -52,6 +52,7 @@ extern "C" {
 #define WINBASEAPI
 #endif
 #endif
+#define F_OK 0
 #define WINAPI __stdcall
 typedef char *PCHAR,*LPCH,*PCH,*NPSTR,*LPSTR,*PSTR;
 typedef const char *LPCCH,*PCSTR,*LPCSTR;
@@ -77,7 +78,7 @@ void convert_find_info(struct TbFileFind *ffind);
 
 int LbDriveCurrent(unsigned int *drive)
 {
-#if defined(WIN32)||defined(DOS)||defined(GO32)
+#if defined(_WIN32)||defined(DOS)||defined(GO32)
   *drive=_getdrive();
 #else
   //Let's assume we're on 'C' drive on Unix ;)
@@ -90,7 +91,7 @@ int LbDriveCurrent(unsigned int *drive)
 int LbDriveChange(const unsigned int drive)
 {
   int result;
-#if defined(WIN32)||defined(DOS)||defined(GO32)
+#if defined(_WIN32)||defined(DOS)||defined(GO32)
   int reterror = _chdrive(drive);
   if ( reterror )
   {
@@ -120,7 +121,7 @@ int LbDriveChange(const unsigned int drive)
 int LbDriveExists(const unsigned int drive)
 {
   int result;
-#if defined(WIN32)||defined(DOS)||defined(GO32)
+#if defined(_WIN32)||defined(DOS)||defined(GO32)
   unsigned int lastdrive=_getdrive();
   if ( _chdrive(drive) )
   {
@@ -164,7 +165,7 @@ int LbDirectoryChange(const char *path)
 int LbDriveFreeSpace(const unsigned int drive, struct TbDriveInfo *drvinfo)
 {
   int result;
-#if defined(WIN32)||defined(DOS)||defined(GO32)
+#if defined(_WIN32)||defined(DOS)||defined(GO32)
   struct _diskfree_t diskspace;
   int reterror = _getdiskfree(drive, &diskspace);
   if ( reterror )
@@ -214,7 +215,6 @@ TbFileHandle LbFileOpen(const char *fname, const unsigned char accmode)
     if ( mode == Lb_FILE_MODE_OLD )
       mode = Lb_FILE_MODE_NEW;
   }
-  TbFileHandle rc;
 /* DISABLED - NOT NEEDED
   if ( mode == Lb_FILE_MODE_NEW )
   {
@@ -226,7 +226,7 @@ TbFileHandle LbFileOpen(const char *fname, const unsigned char accmode)
     close(rc);
   }
 */
-  rc = -1;
+  TbFileHandle rc = -1;
   switch (mode)
   {
   case Lb_FILE_MODE_NEW:
@@ -314,9 +314,8 @@ int LbFileSeek(TbFileHandle handle, long offset, unsigned char origin)
  */
 int LbFileRead(TbFileHandle handle, void *buffer, unsigned long len)
 {
-  int result;
   //'read' returns (-1) on error
-  result = read(handle,buffer,len);
+  int result = read(handle, buffer, len);
   return result;
 }
 
@@ -329,9 +328,8 @@ int LbFileRead(TbFileHandle handle, void *buffer, unsigned long len)
 */
 long LbFileWrite(TbFileHandle handle, const void *buffer, const unsigned long len)
 {
-  long result;
-  result = write(handle, buffer, len);
-  return result;
+    long result = write(handle, buffer, len);
+    return result;
 }
 
 /**
@@ -340,10 +338,9 @@ long LbFileWrite(TbFileHandle handle, const void *buffer, const unsigned long le
 */
 short LbFileFlush(TbFileHandle handle)
 {
-#if defined(WIN32)
-  int result;
+#if defined(_WIN32)
   // Crappy Windows has its own
-  result = FlushFileBuffers((HANDLE)handle);
+  int result = FlushFileBuffers((HANDLE)handle);
   // It returns 'invalid handle' error sometimes for no reason.. so disabling this error
   if (result != 0)
       return 1;
@@ -364,21 +361,19 @@ short LbFileFlush(TbFileHandle handle)
 
 long LbFileLengthHandle(TbFileHandle handle)
 {
-  long result;
-  result = filelength(handle);
-  return result;
+    long result = filelength(handle);
+    return result;
 }
 
 //Returns disk size of file
 long LbFileLength(const char *fname)
 {
-  TbFileHandle handle;
-  handle = LbFileOpen(fname, Lb_FILE_MODE_READ_ONLY);
-  long result = handle;
-  if ( handle != -1 )
-  {
-    result = filelength(handle);
-    LbFileClose(handle);
+    TbFileHandle handle = LbFileOpen(fname, Lb_FILE_MODE_READ_ONLY);
+    long result = handle;
+    if (handle != -1)
+    {
+        result = filelength(handle);
+        LbFileClose(handle);
   }
   return result;
 }
@@ -390,7 +385,7 @@ void convert_find_info(struct TbFileFind *ffind)
   struct _finddata_t *fdata=&(ffind->Reserved);
   strncpy(ffind->Filename,fdata->name,144);
   ffind->Filename[143]='\0';
-#if defined(WIN32)
+#if defined(_WIN32)
   GetShortPathName(fdata->name,ffind->AlternateFilename,14);
 #else
   strncpy(ffind->AlternateFilename,fdata->name,14);
@@ -521,16 +516,15 @@ int LbFileMakeFullPath(const short append_cur_dir,
 
   if ( directory != NULL )
   {
-    int copy_len;
-    copy_len = strlen(directory);
-    if ( len-2 <= namestart+copy_len-1 )
-      return -1;
-    memcpy(buf+namestart, directory, copy_len);
-    namestart += copy_len-1;
-    if ( (namestart>0) && (buf[namestart-1]!='\\') && (buf[namestart-1]!='/'))
-    {
-      buf[namestart] = '/';
-      namestart++;
+      int copy_len = strlen(directory);
+      if (len - 2 <= namestart + copy_len - 1)
+          return -1;
+      memcpy(buf + namestart, directory, copy_len);
+      namestart += copy_len - 1;
+      if ((namestart > 0) && (buf[namestart - 1] != '\\') && (buf[namestart - 1] != '/'))
+      {
+          buf[namestart] = '/';
+          namestart++;
     }
     buf[namestart] = '\0';
   }
@@ -543,12 +537,9 @@ int LbFileMakeFullPath(const short append_cur_dir,
      if (*ptr++ == 0)
        {invlen--;break;}
     }
-    int copy_len;
-    const char *copy_src;
-    char *copy_dst;
-    copy_len = ~invlen;
-    copy_src = &ptr[-copy_len];
-    copy_dst = buf;
+    int copy_len = ~invlen;
+    const char* copy_src = &ptr[-copy_len];
+    char* copy_dst = buf;
     for (invlen=-1;invlen!=0;invlen--)
     {
      if (*copy_dst++ == 0)
