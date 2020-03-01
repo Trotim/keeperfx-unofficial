@@ -40,6 +40,7 @@
 #include "game_legacy.h"
 #include "engine_redraw.h"
 #include "keeperfx.hpp"
+#include "gui_soundmsgs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1117,7 +1118,7 @@ TngUpdateRet process_effect_generator(struct Thing *thing)
         struct Coord3d pos;
         set_coords_to_cylindric_shift(&pos, &thing->mappos, deviation_mag, deviation_angle, 0);
         SYNCDBG(18,"The %s creates effect %d/%d at (%d,%d,%d)",thing_model_name(thing),(int)pos.x.val,(int)pos.y.val,(int)pos.z.val);
-        struct Thing* elemtng = create_effect_element(&pos, egenstat->field_C, thing->owner);
+        struct Thing* elemtng = create_effect_element(&pos, egenstat->effect_sound, thing->owner);
         TRACE_THING(elemtng);
         if (thing_is_invalid(elemtng))
             break;
@@ -1209,8 +1210,9 @@ struct Thing *create_effect(const struct Coord3d *pos, ThingModel effmodel, Play
     }
     add_thing_to_its_class_list(thing);
     place_thing_in_mapwho(thing);
-    if (ieffect->field_C != 0) {
-        thing_play_sample(thing, ieffect->field_C, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
+    if ((ieffect->effect_sound != 0) && (ieffect->area_affect_type != AAffT_WOPDamage)) //Excluding WOP effect, taking shot sound instead
+    {
+        thing_play_sample(thing, ieffect->effect_sound, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
     }
     return thing;
 }
@@ -1258,7 +1260,7 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
 {
     TbBool affected = false;
     SYNCDBG(17,"Starting for %s, max damage %d, max blow %d, owner %d",thing_model_name(tngdst),(int)max_damage,(int)blow_strength,(int)owner);
-    if (line_of_sight_3d(pos, &tngdst->mappos))
+    if (nowibble_line_of_sight_3d(pos, &tngdst->mappos))
     {
         // Friendly fire usually causes less damage and at smaller distance
         if ((tngdst->class_id == TCls_Creature) && (tngdst->owner == owner)) {
@@ -1268,17 +1270,38 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
         MapCoordDelta distance = get_2d_distance(pos, &tngdst->mappos);
         if (distance < max_dist)
         {
-            long move_angle = get_angle_xy_to(pos, &tngdst->mappos);
             if (tngdst->class_id == TCls_Creature)
             {
                 HitPoints damage = get_radially_decaying_value(max_damage, max_dist / 4, 3 * max_dist / 4, distance) + 1;
                 SYNCDBG(7,"Causing %d damage to %s at distance %d",(int)damage,thing_model_name(tngdst),(int)distance);
                 apply_damage_to_thing_and_display_health(tngdst, damage, damage_type, owner);
                 affected = true;
+                if (tngdst->health < 0)
+                {
+                    CrDeathFlags dieflags = CrDed_DiedInBattle;
+                    // Explosions kill rather than only stun friendly creatures when imprison is on
+                    if (tngsrc->owner == tngdst->owner)
+                    {
+                        dieflags |= CrDed_NoUnconscious;
+                    }
+                    kill_creature(tngdst, tngsrc, -1, dieflags);
+                    affected = true;
+                }
             }
-            // If the thing isn't dying, move it
-            if ((tngdst->class_id != TCls_Creature) || (tngdst->health >= 0))
+            if (thing_is_dungeon_heart(tngdst))
             {
+                HitPoints damage = get_radially_decaying_value(max_damage, max_dist / 4, 3 * max_dist / 4, distance) + 1;
+                SYNCDBG(7,"Causing %d damage to %s at distance %d",(int)damage,thing_model_name(tngdst),(int)distance);
+                apply_damage_to_thing(tngdst, damage, damage_type, -1);
+                affected = true;
+                event_create_event_or_update_nearby_existing_event(tngdst->mappos.x.val, tngdst->mappos.y.val,EvKind_HeartAttacked, tngdst->owner, 0);
+                if (is_my_player_number(tngdst->owner))
+                {
+                    output_message(SMsg_HeartUnderAttack, 400, true);
+                }
+            } else // Explosions move creatures and other things
+            {
+                long move_angle = get_angle_xy_to(pos, &tngdst->mappos);
                 long move_dist = get_radially_decaying_value(blow_strength, max_dist / 4, 3 * max_dist / 4, distance);
                 if (move_dist > 0)
                 {
@@ -1287,17 +1310,30 @@ TbBool explosion_affecting_thing(struct Thing *tngsrc, struct Thing *tngdst, con
                     tngdst->state_flags |= TF1_PushAdd;
                     affected = true;
                 }
-            } else
-            {
-                CrDeathFlags dieflags = CrDed_DiedInBattle;
-                // Explosions kill rather than only stun friendly creatures when imprison is on
-                if (tngsrc->owner == tngdst->owner)
-                {
-                    dieflags |= CrDed_NoUnconscious;
-                }
-                kill_creature(tngdst, tngsrc, -1, dieflags);
-                affected = true;
-            }
+            } 
+        }
+    }
+    return affected;
+}
+TbBool explosion_affecting_door(struct Thing *tngsrc, struct Thing *tngdst, const struct Coord3d *pos,
+    MapCoordDelta max_dist, HitPoints max_damage, long blow_strength, DamageType damage_type, PlayerNumber owner)
+{
+    TbBool affected = false;
+    SYNCDBG(17,"Starting for %s, max damage %d, max blow %d, owner %d",thing_model_name(tngdst),(int)max_damage,(int)blow_strength,(int)owner);
+    if (tngdst->class_id != TCls_Door)
+    {
+        ERRORLOG("%s is trying to damage %s which is not a door",thing_model_name(tngsrc),thing_model_name(tngdst));
+        return false;
+    }
+    if (line_of_sight_3d_ignoring_specific_door(&tngsrc->mappos, &tngdst->mappos,tngdst))
+    {
+        MapCoordDelta distance = get_2d_distance(pos, &tngdst->mappos);
+        if (distance < max_dist)
+        {
+            HitPoints damage = get_radially_decaying_value(max_damage, max_dist / 4, 3 * max_dist / 4, distance) + 1;
+            SYNCDBG(7,"Causing %d damage to %s at distance %d",(int)damage,thing_model_name(tngdst),(int)distance);
+            apply_damage_to_thing(tngdst, damage, damage_type, -1);
+            affected = true;
         }
     }
     return affected;
@@ -1335,11 +1371,19 @@ long explosion_effect_affecting_map_block(struct Thing *efftng, struct Thing *tn
         }
         i = thing->next_on_mapblk;
         // Per thing processing block
-        if (effect_can_affect_thing(efftng, thing)
-          || ((thing->class_id == TCls_Door) && (thing->owner != owner)))
+        if ((thing->class_id == TCls_Door) && (efftng->shot.hit_type != 4)) //TODO: Find pretty way to say that WoP traps should not destroy doors. And make it configurable through configs.
+        {
+            if (explosion_affecting_door(tngsrc, thing, &efftng->mappos, max_dist, max_damage, blow_strength, damage_type, owner))
+            {
+                num_affected++;
+            }
+        } else
+        if (effect_can_affect_thing(efftng, thing))
         {
             if (explosion_affecting_thing(tngsrc, thing, &efftng->mappos, max_dist, max_damage, blow_strength, damage_type, owner))
+            {
                 num_affected++;
+            }
         }
         // Per thing processing block ends
         k++;
@@ -1370,7 +1414,15 @@ void word_of_power_affecting_area(struct Thing *efftng, struct Thing *owntng, st
     if (efftng->creation_turn != game.play_gameturn) {
         return;
     }
-    struct ShotConfigStats* shotst = get_shot_model_stats(31); //SHOT_TRAP_WORD_OF_POWER
+    struct ShotConfigStats* shotst;
+    if (efftng->shot.hit_type == 4) // TODO: hit type seems hard coded. Find a better way to tell apart WoP traps from spells.
+    {
+        shotst = get_shot_model_stats(31); //SHOT_TRAP_WORD_OF_POWER
+    }
+    else
+    {
+        shotst = get_shot_model_stats(30); //SHOT_WORD_OF_POWER
+    }
     if ((shotst->area_range <= 0) || ((shotst->area_damage == 0) && (shotst->area_blow == 0))) {
         ERRORLOG("Word of power shot configuration does not include area influence.");
         return;

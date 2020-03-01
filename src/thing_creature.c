@@ -2534,7 +2534,7 @@ long project_creature_shot_damage(const struct Thing *thing, ThingModel shot_mod
     const struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     const struct CreatureStats* crstat = creature_stats_get_from_thing(thing);
     long damage;
-    if ( shotst->old->is_melee )
+    if ((shotst->model_flags & ShMF_StrengthBased) != 0 )
     {
         // Project melee damage
         long strength = compute_creature_max_strength(crstat->strength, cctrl->explevel);
@@ -2580,7 +2580,7 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
         pos2.y.val = target->mappos.y.val;
         pos2.z.val = target->mappos.z.val;
         pos2.z.val += (target->clipbox_size_yz >> 1);
-        if ((shotst->old->is_melee) && (target->class_id != TCls_Door))
+        if (((shotst->model_flags & ShMF_StrengthBased) != 0) && (target->class_id != TCls_Door))
         {
           flag1 = true;
           pos1.z.val = pos2.z.val;
@@ -2589,7 +2589,7 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
         angle_yz = get_angle_yz_to(&pos1, &pos2);
     }
     // Compute shot damage
-    if (shotst->old->is_melee)
+    if ((shotst->model_flags & ShMF_StrengthBased) != 0)
     {
         damage = calculate_melee_damage(firing);
     } else
@@ -2599,9 +2599,8 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
     struct Thing* shotng = NULL;
     long target_idx = 0;
     // Set target index for navigating shots
-    if (shot_model_is_navigable(shot_model))
+    if (!thing_is_invalid(target))
     {
-      if (!thing_is_invalid(target))
         target_idx = target->index;
     }
     struct ComponentVector cvect;
@@ -2674,6 +2673,23 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
         shotng->parent_idx = firing->index;
         shotng->shot.target_idx = target_idx;
         shotng->shot.dexterity = compute_creature_max_dexterity(crstat->dexterity,cctrl->explevel);
+            if (shot_model == ShM_Lizard)
+            {
+                if (!thing_is_invalid(target))
+                {
+                    long range = 2200 - ((crstat->dexterity + ((cctrl->explevel + 1) * 5)) * 15);
+                    range = range < 1 ? 1 : range;
+                    long rnd = (ACTION_RANDOM(2 * range) - range);
+                    rnd = rnd < (range / 3) && rnd > 0 ? (ACTION_RANDOM(range / 2) + (range / 2)) + 200 : rnd + 200;
+                    rnd = rnd > -(range / 3) && rnd < 0 ? -(ACTION_RANDOM(range / 3) + (range / 3)) : rnd;
+                    long x = move_coord_with_angle_x(target->mappos.x.val, rnd, angle_xy);
+                    long y = move_coord_with_angle_y(target->mappos.y.val, rnd, angle_xy);
+                    int posint = y / 300;
+                    shotng->price.number = x;
+                    shotng->shot.byte_19 = posint;
+                    shotng->shot.dexterity = range / 10;
+                }
+            }
         break;
     }
     if (!thing_is_invalid(shotng))
@@ -2689,14 +2705,14 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
       }
 #endif
       shotng->shot.hit_type = hit_type;
-      if (shotst->old->firing_sound > 0)
+      if (shotst->firing_sound > 0)
       {
-        thing_play_sample(firing, shotst->old->firing_sound + UNSYNC_RANDOM(shotst->old->firing_sound_variants),
+        thing_play_sample(firing, shotst->firing_sound + UNSYNC_RANDOM(shotst->firing_sound_variants),
             100, 0, 3, 0, 3, FULL_LOUDNESS);
       }
-      if (shotst->old->shot_sound > 0)
+      if (shotst->shot_sound > 0)
       {
-        thing_play_sample(shotng, shotst->old->shot_sound, NORMAL_PITCH, 0, 3, 0, shotst->old->field_20, FULL_LOUDNESS);
+        thing_play_sample(shotng, shotst->shot_sound, NORMAL_PITCH, 0, 3, 0, shotst->old->field_20, FULL_LOUDNESS);
       }
       set_flag_byte(&shotng->movement_flags,TMvF_Unknown10,flag1);
     }
