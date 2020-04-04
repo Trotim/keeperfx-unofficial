@@ -253,6 +253,7 @@ TbBool control_creature_as_controller(struct PlayerInfo *player, struct Thing *t
 {
     struct CreatureStats *crstat;
     struct Camera *cam;
+    struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     //return _DK_control_creature_as_controller(player, thing);
     if (((thing->owner != player->id_number) && (player->work_state != PSt_FreeCtrlDirect))
       || !thing_can_be_controlled_as_controller(thing))
@@ -261,10 +262,9 @@ TbBool control_creature_as_controller(struct PlayerInfo *player, struct Thing *t
         return false;
       cam = player->acamera;
       crstat = creature_stats_get(get_players_special_digger_model(player->id_number));
-      cam->mappos.z.val += crstat->eye_height;
+      cam->mappos.z.val += (crstat->eye_height + (crstat->eye_height * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100);
       return true;
     }
-    struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
     cctrl->moveto_pos.x.val = 0;
     cctrl->moveto_pos.y.val = 0;
     cctrl->moveto_pos.z.val = 0;
@@ -897,7 +897,7 @@ void first_apply_spell_effect_to_thing(struct Thing *thing, SpellKind spell_idx,
             fill_spell_slot(thing, i, spell_idx, pwrdynst->strength[spell_lev]);
             n = 0;
             cctrl->spell_flags |= CSAfF_Armour;
-            for (k=0; k < 3; k++)
+            for (k=0; k < 2; k++)
             {
                 set_coords_to_cylindric_shift(&pos, &thing->mappos, 32, n, k * (thing->clipbox_size_yz >> 1) );
                 ntng = create_object(&pos, 51, thing->owner, -1);
@@ -905,7 +905,7 @@ void first_apply_spell_effect_to_thing(struct Thing *thing, SpellKind spell_idx,
                 {
                     cctrl->spell_tngidx_armour[k] = ntng->index;
                     ntng->health = pwrdynst->strength[spell_lev] + 1;
-                    ntng->word_13 = thing->index;
+                    ntng->belongs_to = thing->index;
                     ntng->byte_15 = k;
                     ntng->move_angle_xy = thing->move_angle_xy;
                     ntng->move_angle_z = thing->move_angle_z;
@@ -1016,7 +1016,7 @@ void first_apply_spell_effect_to_thing(struct Thing *thing, SpellKind spell_idx,
               {
                 cctrl->spell_tngidx_disease[k] = ntng->index;
                 ntng->health = pwrdynst->strength[spell_lev] + 1;
-                ntng->word_13 = thing->index;
+                ntng->belongs_to = thing->index;
                 ntng->byte_15 = k;
                 ntng->move_angle_xy = thing->move_angle_xy;
                 ntng->move_angle_z = thing->move_angle_z;
@@ -2564,11 +2564,11 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
     pos1.x.val = firing->mappos.x.val;
     pos1.y.val = firing->mappos.y.val;
     pos1.z.val = firing->mappos.z.val;
-    pos1.x.val += distance_with_angle_to_coord_x(cctrl->shot_shift_x, firing->move_angle_xy+LbFPMath_PI/2);
-    pos1.y.val += distance_with_angle_to_coord_y(cctrl->shot_shift_x, firing->move_angle_xy+LbFPMath_PI/2);
-    pos1.x.val += distance_with_angle_to_coord_x(cctrl->shot_shift_y, firing->move_angle_xy);
-    pos1.y.val += distance_with_angle_to_coord_y(cctrl->shot_shift_y, firing->move_angle_xy);
-    pos1.z.val += (cctrl->shot_shift_z);
+    pos1.x.val += distance_with_angle_to_coord_x((cctrl->shot_shift_x + (cctrl->shot_shift_x * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100), firing->move_angle_xy+LbFPMath_PI/2);
+    pos1.y.val += distance_with_angle_to_coord_y((cctrl->shot_shift_x + (cctrl->shot_shift_x * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100), firing->move_angle_xy+LbFPMath_PI/2);
+    pos1.x.val += distance_with_angle_to_coord_x((cctrl->shot_shift_y + (cctrl->shot_shift_y * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100), firing->move_angle_xy);
+    pos1.y.val += distance_with_angle_to_coord_y((cctrl->shot_shift_y + (cctrl->shot_shift_y * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100), firing->move_angle_xy);
+    pos1.z.val += (cctrl->shot_shift_z +(cctrl->shot_shift_z * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) /100);
     // Compute launch angles
     if (thing_is_invalid(target))
     {
@@ -2608,7 +2608,7 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
     {
     case ShM_Lightning:
     case ShM_Drain:
-        if ((thing_is_invalid(target)) || (get_2d_distance(&firing->mappos, &pos2) > 5120))
+        if ((thing_is_invalid(target)) || (get_2d_distance(&firing->mappos, &pos2) > shotst->max_range))
         {
             project_point_to_wall_on_angle(&pos1, &pos2, firing->move_angle_xy, firing->move_angle_z, 256, 20);
         }
@@ -2624,7 +2624,7 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
         shotng->parent_idx = firing->index;
         break;
     case ShM_FlameBreathe:
-        if ((thing_is_invalid(target)) || (get_2d_distance(&firing->mappos, &pos2) > 768))
+        if ((thing_is_invalid(target)) || (get_2d_distance(&firing->mappos, &pos2) > shotst->max_range))
           project_point_to_wall_on_angle(&pos1, &pos2, firing->move_angle_xy, firing->move_angle_z, 256, 4);
         shotng = create_thing(&pos2, TCls_Shot, shot_model, firing->owner, -1);
         if (thing_is_invalid(shotng))
@@ -2677,14 +2677,14 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
             {
                 if (!thing_is_invalid(target))
                 {
-                    long range = 2200 - ((crstat->dexterity + ((cctrl->explevel + 1) * 5)) * 15);
+                    long range = 2200 - ((crstat->dexterity + (crstat->dexterity * cctrl->explevel * crtr_conf.exp.dexterity_increase_on_exp)/100) * 19);
                     range = range < 1 ? 1 : range;
                     long rnd = (ACTION_RANDOM(2 * range) - range);
                     rnd = rnd < (range / 3) && rnd > 0 ? (ACTION_RANDOM(range / 2) + (range / 2)) + 200 : rnd + 200;
                     rnd = rnd > -(range / 3) && rnd < 0 ? -(ACTION_RANDOM(range / 3) + (range / 3)) : rnd;
                     long x = move_coord_with_angle_x(target->mappos.x.val, rnd, angle_xy);
                     long y = move_coord_with_angle_y(target->mappos.y.val, rnd, angle_xy);
-                    int posint = y / 300;
+                    int posint = y / crtr_conf.sprite_size;
                     shotng->price.number = x;
                     shotng->shot.byte_19 = posint;
                     shotng->shot.dexterity = range / 10;
@@ -2695,7 +2695,7 @@ void creature_fire_shot(struct Thing *firing, struct Thing *target, ThingModel s
     if (!thing_is_invalid(shotng))
     {
 #if (BFDEBUG_LEVEL > 0)
-      damage = shotng->word_14;
+      damage = shotng->damagepoints;
       // Special debug code that shows amount of damage the shot will make
       if ((start_params.debug_flags & DFlg_ShotsDamage) != 0)
           create_price_effect(&pos1, my_player_number, damage);
@@ -2796,10 +2796,10 @@ long creature_instance_has_reset(const struct Thing *thing, long inst_idx)
     long delta = (long)game.play_gameturn - (long)cctrl->instance_use_turn[inst_idx];
     if ((thing->alloc_flags & TAlF_IsControlled) != 0)
     {
-        ritime = inst_inf->fp_reset_time + inst_inf->fp_time - inst_inf->fp_action_time;
+        ritime = inst_inf->fp_reset_time + cctrl->inst_total_turns - cctrl->inst_action_turns;
     } else
     {
-        ritime = inst_inf->reset_time + inst_inf->time - inst_inf->action_time;
+        ritime = inst_inf->reset_time + cctrl->inst_total_turns - cctrl->inst_action_turns;
     }
     return (delta >= ritime);
 }
@@ -3273,7 +3273,7 @@ struct Thing *create_creature(struct Coord3d *pos, ThingModel model, PlayerNumbe
     cctrl->shot_shift_y = creatures[model].shot_shift_y;
     cctrl->shot_shift_z = creatures[model].shot_shift_z;
     long i = get_creature_anim(crtng, 0);
-    set_thing_draw(crtng, i, 256, 300, 0, 0, 2);
+    set_thing_draw(crtng, i, 256, crtr_conf.sprite_size, 0, 0, 2);
     cctrl->explevel = 1;
     crtng->health = crstat->health;
     cctrl->max_health = compute_creature_max_health(crstat->health,cctrl->explevel);

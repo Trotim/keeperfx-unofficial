@@ -277,7 +277,7 @@ void process_dungeon_destroy(struct Thing *heartng)
             efftng = create_effect(central_pos, TngEff_Unknown04, plyr_idx);
             if (!thing_is_invalid(efftng))
               efftng->byte_16 = 8;
-            efftng = create_effect(central_pos, TngEff_Unknown14, plyr_idx);
+            efftng = create_effect(central_pos, TngEff_WoPExplosion, plyr_idx);
             if (!thing_is_invalid(efftng))
                 efftng->byte_16 = 8;
             destroy_dungeon_heart_room(plyr_idx, heartng);
@@ -2553,6 +2553,10 @@ void process_level_script(void)
 
 void update_player_camera_fp(struct Camera *cam, struct Thing *thing)
 {
+    struct CreatureStatsOLD *creature_stats_OLD = &game.creature_stats_OLD[thing->model];
+    struct CreatureStats* crstat = creature_stats_get_from_thing(thing);
+    struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
+    creature_stats_OLD->eye_height = crstat->eye_height + (crstat->eye_height * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100;
     _DK_update_player_camera_fp(cam, thing);
 }
 
@@ -4151,6 +4155,11 @@ void startup_saved_packet_game(void)
     post_init_level();
     post_init_players();
     set_selected_level_number(0);
+    if (is_key_pressed(KC_LALT, KMod_NONE))
+    {
+        struct PlayerInfo* player = get_my_player();
+        set_engine_view(player, PVM_FrontView);
+    }
 }
 
 void faststartup_saved_packet_game(void)
@@ -4175,7 +4184,7 @@ void startup_network_game(TbBool local)
     setup_count_players();
     player = get_my_player();
     flgmem = player->field_2C;
-    if ((campaign.human_player >= 0) && (!force_player_num))
+    if (local && (campaign.human_player >= 0) && (!force_player_num))
     {
         default_loc_player = campaign.human_player;
         game.local_plyr_idx = default_loc_player;

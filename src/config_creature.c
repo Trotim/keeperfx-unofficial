@@ -35,6 +35,7 @@
 #include "creature_instances.h"
 #include "creature_graphics.h"
 #include "creature_states.h"
+#include "creature_states_combt.h"
 #include "creature_jobs.h"
 #include "engine_arrays.h"
 #include "game_legacy.h"
@@ -51,21 +52,23 @@ const struct NamedCommand creaturetype_common_commands[] = {
   {"JOBSCOUNT",              3},
   {"ANGERJOBSCOUNT",         4},
   {"ATTACKPREFERENCESCOUNT", 5},
+  {"SPRITESIZE",             6},
   {NULL,                     0},
   };
 
 const struct NamedCommand creaturetype_experience_commands[] = {
-  {"PAYINCREASEONEXP",      1},
-  {"SPELLDAMAGEINCREASEONEXP",2},
-  {"RANGEINCREASEONEXP",    3},
-  {"JOBVALUEINCREASEONEXP", 4},
-  {"HEALTHINCREASEONEXP",   5},
-  {"STRENGTHINCREASEONEXP", 6},
-  {"DEXTERITYINCREASEONEXP",7},
-  {"DEFENSEINCREASEONEXP",  8},
-  {"LOYALTYINCREASEONEXP",  9},
-  {"ARMOURINCREASEONEXP",  10},
-  {NULL,                    0},
+  {"PAYINCREASEONEXP",         1},
+  {"SPELLDAMAGEINCREASEONEXP", 2},
+  {"RANGEINCREASEONEXP",       3},
+  {"JOBVALUEINCREASEONEXP",    4},
+  {"HEALTHINCREASEONEXP",      5},
+  {"STRENGTHINCREASEONEXP",    6},
+  {"DEXTERITYINCREASEONEXP",   7},
+  {"DEFENSEINCREASEONEXP",     8},
+  {"LOYALTYINCREASEONEXP",     9},
+  {"ARMOURINCREASEONEXP",     10},
+  {"SIZEINCREASEONEXP",       11},
+  {NULL,                       0},
   };
 
 const struct NamedCommand creaturetype_instance_commands[] = {
@@ -81,7 +84,9 @@ const struct NamedCommand creaturetype_instance_commands[] = {
   {"SYMBOLSPRITES",  10},
   {"GRAPHICS",       11},
   {"FUNCTION",       12},
-  {"PROPERTIES",     13},
+  {"RANGEMIN",       13},
+  {"RANGEMAX",       14},
+  {"PROPERTIES",     15},
   {NULL,              0},
   };
 
@@ -461,6 +466,7 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
         crtr_conf.special_digger_good = 0;
         crtr_conf.special_digger_evil = 0;
         crtr_conf.spectator_breed = 0;
+        crtr_conf.sprite_size = 300;
     }
     int k = sizeof(crtr_conf.model) / sizeof(crtr_conf.model[0]);
     for (int i = 0; i < k; i++)
@@ -580,6 +586,22 @@ TbBool parse_creaturetypes_common_blocks(char *buf, long len, const char *config
                   COMMAND_TEXT(cmd_num),block_buf,config_textname);
             }
             break;
+        case 6: // SPRITESIZE
+            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+            {
+                k = atoi(word_buf);
+                if ((k > 0) && (k <= 1024))
+                {
+                    crtr_conf.sprite_size = k;
+                    n++;
+                }
+            }
+            if (n < 1)
+            {
+                CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num), block_buf, config_textname);
+            }
+            break;
         case 0: // comment
             break;
         case -1: // end of buffer
@@ -606,6 +628,7 @@ TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *con
     // Initialize block data
     if ((flags & CnfLd_AcceptPartial) == 0)
     {
+        crtr_conf.exp.size_increase_on_exp = 0;
         crtr_conf.exp.pay_increase_on_exp = CREATURE_PROPERTY_INCREASE_ON_EXP;
         crtr_conf.exp.spell_damage_increase_on_exp = CREATURE_PROPERTY_INCREASE_ON_EXP;
         crtr_conf.exp.range_increase_on_exp = CREATURE_PROPERTY_INCREASE_ON_EXP;
@@ -767,6 +790,19 @@ TbBool parse_creaturetype_experience_blocks(char *buf, long len, const char *con
             {
                 CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
                     COMMAND_TEXT(cmd_num),block_buf,config_textname);
+            }
+            break;
+        case 11: // SIZEINCREASEONEXP
+            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+            {
+                k = atoi(word_buf);
+                crtr_conf.exp.size_increase_on_exp = k;
+                n++;
+            }
+            if (n < 1)
+            {
+                CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num), block_buf, config_textname);
             }
             break;
         case 0: // comment
@@ -1047,7 +1083,59 @@ TbBool parse_creaturetype_instance_blocks(char *buf, long len, const char *confi
                     COMMAND_TEXT(cmd_num),block_buf,config_textname);
             }
             break;
-        case 13: // PROPERTIES
+        case 13: //RANGEMIN
+                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+          {
+              int j = 0;
+              int l = 0;
+              for (j=0; j < 23; j++) // Size of offensive_weapon
+              {
+                  if (offensive_weapon[j].inst_id == i)
+                  {
+                      l = 1;
+                      break;
+                  }
+              }
+              if (l == 1)
+              {
+                  k = atoi(word_buf);
+                  offensive_weapon[j].range_min = k;
+                  n++;
+              }
+          }
+          if (n < 1)
+          {
+                CONFWRNLOG("Couldn't read \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num),block_buf,config_textname);
+          }
+                   break;
+        case 14: //RANGEMAX
+                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+          {
+              int j = 0;
+              int l = 0;
+              for (j=0; j < 23; j++) // Size of offensive_weapon
+              {
+                  if (offensive_weapon[j].inst_id == i)
+                  {
+                      l = 1;
+                      break;
+                  }
+              }
+              if (l == 1)
+              {
+                  k = atoi(word_buf);
+                  offensive_weapon[j].range_max = k;
+                  n++;
+              }
+          }
+          if (n < 1)
+          {
+                CONFWRNLOG("Couldn't read \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num),block_buf,config_textname);
+          }
+                   break;
+        case 15: // PROPERTIES
             inst_inf->flags = 0;
             while (get_conf_parameter_single(buf,&pos,len,word_buf,sizeof(word_buf)) > 0)
             {

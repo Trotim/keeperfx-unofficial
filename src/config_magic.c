@@ -75,6 +75,7 @@ const struct NamedCommand magic_shot_commands[] = {
   {"FIRINGSOUND",         10},
   {"SHOTSOUND",           11},
   {"FIRINGSOUNDVARIANTS", 12},
+  {"MAXRANGE",            13},
   {NULL,                   0},
   };
 
@@ -117,6 +118,7 @@ const struct NamedCommand shotmodel_properties_commands[] = {
   {"NO_STUN",           8},
   {"NO_HIT",            9},
   {"STRENGTH_BASED",   10},
+  {"ALARMS_UNITS",     11},
   {NULL,                0},
   };
 
@@ -679,6 +681,7 @@ TbBool parse_magic_shot_blocks(char *buf, long len, const char *config_textname,
           shotst->area_damage = 0;
           shotst->area_blow = 0;
           shotst->old->push_on_hit = 0;
+          shotst->max_range = 0;
       }
   }
   // Load the file
@@ -865,6 +868,10 @@ TbBool parse_magic_shot_blocks(char *buf, long len, const char *config_textname,
                 shotst->model_flags |= ShMF_StrengthBased;
                 n++;
                 break;
+            case 11: // ALARMS_UNITS
+                shotst->model_flags |= ShMF_AlarmsUnits;
+                n++;
+                break;
             default:
                 CONFWRNLOG("Incorrect value of \"%s\" parameter \"%s\" in [%s] block of %s file.",
                     COMMAND_TEXT(cmd_num),word_buf,block_buf,config_textname);
@@ -885,7 +892,7 @@ TbBool parse_magic_shot_blocks(char *buf, long len, const char *config_textname,
           }
           break;
        case 10: //FIRINGSOUND
-                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
           {
               k = atoi(word_buf);
               shotst->firing_sound = k;
@@ -897,8 +904,8 @@ TbBool parse_magic_shot_blocks(char *buf, long len, const char *config_textname,
                   COMMAND_TEXT(cmd_num), block_buf, config_textname);
           }
                    break;
-       case 11: //SHOTSOUND
-                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+      case 11: //SHOTSOUND
+          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
           {
               k = atoi(word_buf);
               shotst->shot_sound = k;
@@ -910,8 +917,8 @@ TbBool parse_magic_shot_blocks(char *buf, long len, const char *config_textname,
                   COMMAND_TEXT(cmd_num), block_buf, config_textname);
           }
                    break;
-       case 12: //FIRINGSOUNDVARIANTS
-                 if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+      case 12: //FIRINGSOUNDVARIANTS
+          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
           {
               k = atoi(word_buf);
               shotst->firing_sound_variants = k;
@@ -919,7 +926,21 @@ TbBool parse_magic_shot_blocks(char *buf, long len, const char *config_textname,
           }
           if (n < 1)
           {
-              shotst->firing_sound_variants = 1;
+                CONFWRNLOG("Couldn't read \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num),block_buf,config_textname);
+          }
+                   break;
+      case 13: //MAXRANGE
+          if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+          {
+              k = atoi(word_buf);
+              shotst->max_range = k;
+              n++;
+          }
+          if (n < 1)
+          {
+                CONFWRNLOG("Couldn't read \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num),block_buf,config_textname);
           }
                    break;
       case 0: // comment

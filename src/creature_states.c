@@ -92,7 +92,6 @@ DLLIMPORT long _DK_move_check_can_damage_wall(struct Thing *creatng);
 DLLIMPORT long _DK_move_check_on_head_for_room(struct Thing *creatng);
 DLLIMPORT long _DK_move_check_persuade(struct Thing *creatng);
 DLLIMPORT long _DK_move_check_wait_at_door_for_wage(struct Thing *creatng);
-DLLIMPORT long _DK_setup_head_for_empty_treasure_space(struct Thing *creatng, struct Room *room);
 DLLIMPORT long _DK_get_best_position_outside_room(struct Thing *creatng, struct Coord3d *pos, struct Room *room);
 /******************************************************************************/
 short already_at_call_to_arms(struct Thing *creatng);
@@ -1506,10 +1505,12 @@ short creature_cannot_find_anything_to_do(struct Thing *creatng)
 void set_creature_size_stuff(struct Thing *creatng)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    if (creature_affected_by_spell(creatng, SplK_Chicken)) {
-      creatng->sprite_size = 300;
-    } else {
-      creatng->sprite_size = 300 + (300 * cctrl->explevel) / 20;
+    if (creature_affected_by_spell(creatng, SplK_Chicken))
+    {
+      creatng->sprite_size = crtr_conf.sprite_size;
+    } else
+    {
+      creatng->sprite_size = crtr_conf.sprite_size + (crtr_conf.sprite_size * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100;
     }
 }
 
@@ -1527,7 +1528,7 @@ short creature_change_from_chicken(struct Thing *creatng)
         struct Thing* efftng = create_effect_element(&creatng->mappos, 0x3Bu, creatng->owner);
         if (!thing_is_invalid(efftng))
         {
-            long n = (10 - cctrl->countdown_282) * (300 * cctrl->explevel / 20 + 300) / 10;
+            long n = (10 - cctrl->countdown_282) * (crtr_conf.sprite_size + (crtr_conf.sprite_size * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100) / 10;
             unsigned long k = get_creature_anim(creatng, 0);
             set_thing_draw(efftng, k, 256, n, -1, 0, 2);
             efftng->field_4F &= ~TF4F_Unknown20;
@@ -1560,7 +1561,7 @@ short creature_change_to_chicken(struct Thing *creatng)
       if (!thing_is_invalid(efftng))
       {
           unsigned long k = convert_td_iso(819);
-          set_thing_draw(efftng, k, 0, 1200 * cctrl->countdown_282 / 10 + 300, -1, 0, 2);
+          set_thing_draw(efftng, k, 0, 1200 * cctrl->countdown_282 / 10 + crtr_conf.sprite_size, -1, 0, 2);
           efftng->field_4F &= ~TF4F_Unknown20;
           efftng->field_4F |= TF4F_Unknown10;
       }
@@ -2130,7 +2131,7 @@ short setup_creature_leaves_or_dies(struct Thing *creatng)
     }
     creatng->continue_state = CrSt_LeavesBecauseOwnerLost;
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    cctrl->flgfield_1 |= 0x02;
+    cctrl->flgfield_1 |= CCFlg_NoCompControl;
     return 1;
 }
 
@@ -2953,7 +2954,75 @@ short creature_wants_salary(struct Thing *creatng)
 
 long setup_head_for_empty_treasure_space(struct Thing *thing, struct Room *room)
 {
-    return _DK_setup_head_for_empty_treasure_space(thing, room);
+    SlabCodedCoords start_slbnum = room->slabs_list;
+   
+    //Find a random slab to start out with
+    long n = ACTION_RANDOM(room->slabs_count);
+    for (unsigned long k = n; k > 0; k--)
+    {
+        if (start_slbnum == 0)
+        {
+            break;
+        }
+        start_slbnum = get_next_slab_number_in_room(start_slbnum);
+    }
+    if (start_slbnum == 0) {
+        ERRORLOG("Taking random slab (%d/%u) in %s index %u failed - internal inconsistency.", n, room->slabs_count, room_code_name(room->kind), room->index);
+        start_slbnum = room->slabs_list;
+    }
+    
+    SlabCodedCoords slbnum = start_slbnum;
+    MapSlabCoord slb_x = slb_num_decode_x(slbnum);
+    MapSlabCoord slb_y = slb_num_decode_y(slbnum);
+    struct Thing* gldtng = find_gold_hoarde_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
+
+    // If the random slab has enough space to drop all gold, go there to drop it
+    long wealth_size_holds = gold_per_hoard / get_wealth_size_types_count();
+    GoldAmount max_hoard_size_in_room = wealth_size_holds * room->total_capacity / room->slabs_count;
+    if((max_hoard_size_in_room - gldtng->valuable.gold_stored) >= thing->creature.gold_carried)
+    {
+        if (setup_person_move_to_position(thing, slab_subtile_center(slb_x), slab_subtile_center(slb_y), NavRtF_Default))
+        {
+            return 1;
+        }
+    }
+
+    //If not, find a slab with the lowest amount of gold
+    GoldAmount gold_amount = gldtng->valuable.gold_stored;
+    GoldAmount min_gold_amount = gldtng->valuable.gold_stored;
+    SlabCodedCoords slbmin = start_slbnum;
+    for (long i = room->slabs_count; i > 0; i--)
+    { 
+        slb_x = slb_num_decode_x(slbnum);
+        slb_y = slb_num_decode_y(slbnum);
+        gldtng = find_gold_hoarde_at(slab_subtile_center(slb_x), slab_subtile_center(slb_y));
+        gold_amount = gldtng->valuable.gold_stored;
+        if (gold_amount <= 0) //Any empty slab will do
+        {
+            slbmin = slbnum;
+            break;
+        }
+        if (gold_amount <= min_gold_amount)
+        { 
+            min_gold_amount = gold_amount;
+            slbmin = slbnum;
+        }
+        slbnum = get_next_slab_number_in_room(slbnum);
+        if (slbnum == 0) 
+        {
+            slbnum = room->slabs_list;
+        }
+        
+    }
+    
+    //Send imp to slab with lowest amount on it
+    slb_x = slb_num_decode_x(slbmin);
+    slb_y = slb_num_decode_y(slbmin);
+    if (setup_person_move_to_position(thing, slab_subtile_center(slb_x), slab_subtile_center(slb_y), NavRtF_Default))
+    {
+        return 1;
+    }
+    return 0;
 }
 
 void place_thing_in_creature_controlled_limbo(struct Thing *thing)

@@ -302,6 +302,39 @@ void get_room_kind_total_and_used_capacity(struct Dungeon *dungeon, RoomKind rki
     *used_cap = used_capacity;
 }
 
+void get_room_kind_total_used_and_storage_capacity(struct Dungeon *dungeon, RoomKind rkind, long *total_cap, long *used_cap, long *storaged_cap)
+{
+    int total_capacity = 0;
+    int used_capacity = 0;
+    int storaged_capacity = 0;
+    long i = dungeon->room_kind[rkind];
+    unsigned long k = 0;
+    while (i != 0)
+    {
+        struct Room* room = room_get(i);
+        if (room_is_invalid(room))
+        {
+            ERRORLOG("Jump to invalid room detected");
+            break;
+        }
+        i = room->next_of_owner;
+        // Per-room code
+        used_capacity += room->used_capacity;
+        total_capacity += room->total_capacity;
+        storaged_capacity += room->capacity_used_for_storage;
+        // Per-room code ends
+        k++;
+        if (k > ROOMS_COUNT)
+        {
+          ERRORLOG("Infinite loop detected when sweeping rooms list");
+          break;
+        }
+    }
+    *total_cap = total_capacity;
+    *used_cap = used_capacity;
+    *storaged_cap = storaged_capacity;
+}
+
 long get_room_kind_used_capacity_fraction(PlayerNumber plyr_idx, RoomKind room_kind)
 {
     struct Dungeon* dungeon = get_dungeon(plyr_idx);
@@ -1369,7 +1402,7 @@ void count_lair_occupants_on_slab(struct Room *room,MapSlabCoord slb_x, MapSlabC
         struct Thing* lairtng = find_lair_totem_at(slab_subtile(slb_x, ssub_x), slab_subtile(slb_y, ssub_y));
         if (!thing_is_invalid(lairtng))
         {
-            struct Thing* creatng = thing_get(lairtng->word_13);
+            struct Thing* creatng = thing_get(lairtng->belongs_to);
             int required_cap = get_required_room_capacity_for_object(RoRoF_LairStorage, 0, creatng->model);
             if (room->used_capacity + required_cap > room->total_capacity)
             {
@@ -1974,7 +2007,7 @@ void create_room_flag(struct Room *room)
             ERRORLOG("Cannot create room flag");
             return;
         }
-        thing->word_13 = room->index;
+        thing->belongs_to = room->index;
     }
 }
 
@@ -2114,7 +2147,7 @@ TbBool room_create_new_food_at(struct Room *room, MapSubtlCoord stl_x, MapSubtlC
     }
     int required_cap = get_required_room_capacity_for_object(RoRoF_FoodStorage, foodtng->model, 0);
     room->used_capacity += required_cap;
-    foodtng->word_13 = (foodtng->field_49 << 8) / foodtng->field_3E - 1;
+    foodtng->belongs_to = (foodtng->field_49 << 8) / foodtng->field_3E - 1;
     return true;
 }
 
@@ -3658,11 +3691,11 @@ void kill_room_contents_at_subtile(struct Room *room, PlayerNumber plyr_idx, Map
         thing = find_lair_totem_at(stl_x, stl_y);
         if (!thing_is_invalid(thing))
         {
-            if (thing->word_13)
+            if (thing->belongs_to)
             {
                 struct Thing *tmptng;
                 struct CreatureControl *cctrl;
-                tmptng = thing_get(thing->word_13);
+                tmptng = thing_get(thing->belongs_to);
                 cctrl = creature_control_get_from_thing(tmptng);
                 if (cctrl->lairtng_idx == thing->index) {
                     creature_remove_lair_totem_from_room(tmptng, room);
@@ -3749,7 +3782,7 @@ void reset_creatures_rooms(struct Room *room)
             struct Room* nroom = get_room_thing_is_on(thing);
             if (room_is_invalid(nroom))
             {
-                cctrl->flgfield_1 &= ~0x20;
+                cctrl->flgfield_1 &= ~CCFlg_IsInRoomList;
                 cctrl->work_room_id = 0;
                 set_start_state(thing);
             } else
@@ -4009,11 +4042,11 @@ void change_ownership_or_delete_object_thing_in_room(struct Room *room, struct T
         // Lair - owns creature lairs
         if (objdat->related_creatr_model)
         {
-            if (thing->word_13)
+            if (thing->belongs_to)
             {
                 struct Thing *tmptng;
                 struct CreatureControl *cctrl;
-                tmptng = thing_get(thing->word_13);
+                tmptng = thing_get(thing->belongs_to);
                 cctrl = creature_control_get_from_thing(tmptng);
                 if (cctrl->lairtng_idx == thing->index) {
                     creature_remove_lair_totem_from_room(tmptng, room);

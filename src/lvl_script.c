@@ -35,6 +35,7 @@
 #include "config_lenses.h"
 #include "config_magic.h"
 #include "config_creature.h"
+#include "config_effects.h"
 #include "gui_soundmsgs.h"
 #include "frontmenu_ingame_tabs.h"
 #include "player_instances.h"
@@ -114,7 +115,7 @@ const struct CommandDesc command_desc[] = {
   {"IF_CONTROLS",                       "PAON    ", Cmd_IF_CONTROLS},
   {"SET_COMPUTER_GLOBALS",              "PNNNNNN ", Cmd_SET_COMPUTER_GLOBALS},
   {"SET_COMPUTER_CHECKS",               "PANNNNN ", Cmd_SET_COMPUTER_CHECKS},
-  {"SET_COMPUTER_EVENT",                "PANN    ", Cmd_SET_COMPUTER_EVENT},
+  {"SET_COMPUTER_EVENT",                "PANNNNN ", Cmd_SET_COMPUTER_EVENT},
   {"SET_COMPUTER_PROCESS",              "PANNNNN ", Cmd_SET_COMPUTER_PROCESS},
   {"ALLY_PLAYERS",                      "PPN     ", Cmd_ALLY_PLAYERS},
   {"DEAD_CREATURES_RETURN_TO_POOL",     "N       ", Cmd_DEAD_CREATURES_RETURN_TO_POOL},
@@ -140,6 +141,8 @@ const struct CommandDesc command_desc[] = {
   {"RUN_AFTER_VICTORY",                 "N       ", Cmd_RUN_AFTER_VICTORY},
   {"LEVEL_UP_CREATURE",                 "PCAN    ", Cmd_LEVEL_UP_CREATURE},
   {"CHANGE_CREATURE_OWNER",             "PCAP    ", Cmd_CHANGE_CREATURE_OWNER},
+  {"SET_TRAP_CONFIGURATION",            "ANNNNNNN", Cmd_SET_TRAP_CONFIGURATION},
+  {"SET_DOOR_CONFIGURATION",            "ANNNN   ", Cmd_SET_DOOR_CONFIGURATION},
   {NULL,                                "        ", Cmd_NONE},
 };
 
@@ -227,7 +230,7 @@ const struct NamedCommand variable_desc[] = {
     {"MONEY",                       SVar_MONEY},
     {"GAME_TURN",                   SVar_GAME_TURN},
     {"BREAK_IN",                    SVar_BREAK_IN},
-    //{"CREATURE_NUM",                SVar_CREATURE_NUM},
+    //{"CREATURE_NUM",              SVar_CREATURE_NUM},
     {"TOTAL_DIGGERS",               SVar_TOTAL_DIGGERS},
     {"TOTAL_CREATURES",             SVar_TOTAL_CREATURES},
     {"TOTAL_RESEARCH",              SVar_TOTAL_RESEARCH},
@@ -1883,7 +1886,126 @@ void command_set_computer_checks(long plr_range_id, const char *chkname, long va
   SCRIPTDBG(6,"Altered %d checks named '%s'",n,chkname);
 }
 
-void command_set_computer_events(long plr_range_id, const char *evntname, long val1, long val2)
+                                                 // Name, Shots, TimeBetweenShots, Model, TriggerType, ActivationType, EffectType, Hidden
+void command_set_trap_configuration(const char* trapname, long val1, long val2, long val3, long val4, long val5, long val6, long val7)
+{
+    if (script_current_condition != -1)
+    {
+        SCRPTWRNLOG("Trap configured inside conditional block; condition ignored");
+    }
+    long trap_id = get_rid(trap_desc, trapname);
+    if (trap_id == -1)
+    {
+        SCRPTERRLOG("Unknown trap, '%s'", trapname);
+    }
+    int validval1 = 1;
+    if (val1 <= 0)
+    {
+        validval1 = 0;
+        SCRPTERRLOG("Shots '%d' out of range", val1);
+    }
+    int validval2 = 1;
+    if (val2 < 0)
+    {
+        validval2 = 0;
+        SCRPTERRLOG("Model '%d' out of range", val2);
+    }
+    int validval3 = 1;
+    if (val3 <= 0)
+    {
+        validval3 = 0;
+        SCRPTERRLOG("Model '%d' out of range", val3);
+    }
+    int validval4 = 0;
+    switch (val4) {
+    case TrpTrg_LineOfSight90:
+    case TrpTrg_Pressure:
+    case TrpTrg_LineOfSight:
+        validval4 = 1;
+        break;
+    default:
+        SCRPTERRLOG("No TriggerType '%d' found", val4);
+    }
+    int validval5 = 0;
+    switch (val5) {
+    case TrpAcT_HeadforTarget90:
+    case TrpAcT_EffectonTrap:
+    case TrpAcT_ShotonTrap:
+    case TrpAcT_SlapChange:
+    case TrpAcT_CreatureShot:
+        validval5 = 1;
+        break;
+    default: 
+        SCRPTERRLOG("No ActivationType '%d' found", val5);
+    }
+    int validval6 = 1;
+    if ((val6 <= 0) || 
+        ((val6 > magic_conf.shot_types_count) && (val5 == (TrpAcT_HeadforTarget90 || TrpAcT_ShotonTrap || TrpAcT_CreatureShot))) ||
+        ((val6 > slab_conf.slab_types_count ) && (val5 == TrpAcT_SlapChange)) ||
+        ((val6 > effects_conf.effect_types_count) && (val5 == TrpAcT_EffectonTrap)))
+    {
+        validval6 = 0;
+        SCRPTERRLOG("EffectType '%d' out of range", val6);
+    }
+    int validval7 = 1;
+    if ((val7 < 0) || (val7 > 1))
+    {
+        validval7 = 0;
+        SCRPTERRLOG("TriggerAlarm '%d' out of range", val7);
+    }
+
+    if (validval1 && validval2 && validval3 && validval4 && validval5 && validval6 && validval7)
+    {
+        struct TrapConfigStats* trapst;
+        struct ManfctrConfig* mconf;
+        trapst = &trapdoor_conf.trap_cfgstats[trap_id];   
+        mconf = &game.traps_config[trap_id];
+        SCRIPTDBG(7, "Changing trap %d configuration from (%d,%d,%d,%d,%d,%d,%d)", trap_id, mconf->shots, mconf->shots_delay, trap_stats[trap_id].sprite_anim_idx, trap_stats[trap_id].trigger_type, trap_stats[trap_id].activation_type, trap_stats[trap_id].created_itm_model,trapst->hidden);
+        SCRIPTDBG(7, "Changing trap %d configuration to (%d,%d,%d,%d,%d,%d,%d)", trap_id, val1, val2, val3, val4, val5, val6, val7);
+        mconf->shots = val1;
+        mconf->shots_delay = val2;
+        trap_stats[trap_id].sprite_anim_idx = val3;
+        trap_stats[trap_id].trigger_type = val4;
+        trap_stats[trap_id].activation_type = val5;
+        trap_stats[trap_id].created_itm_model = val6;
+        trapst->hidden = val7;
+        //trapst->notify = val8; cannot fit 9 variables
+    } else
+    {
+        return;
+    }
+}
+                                              //Name,  ManufactureLevel, ManufactureRequired,SellingValue,Health
+void command_set_door_configuration(const char* doorname, long val1, long val2, long val3, long val4)
+{
+    if (script_current_condition != -1)
+    {
+        SCRPTWRNLOG("Door configured inside conditional block; condition ignored");
+    }
+    long door_id = get_rid(door_desc, doorname);
+    if (door_id == -1)
+    {
+        SCRPTERRLOG("Unknown door, '%s'", doorname);
+    }
+    if (!((val1 < 0) || (val2 < 0) || (val3 < 0) || (val4 < 0)))
+    {
+        struct ManfctrConfig* mconf;
+        mconf = &game.doors_config[door_id];
+        SCRIPTDBG(7, "Changing door %d configuration from (%d,%d,%d,%d) to (%d,%d,%d,%d)", door_id, mconf->manufct_level, mconf->manufct_required, mconf->selling_value, door_stats[door_id][0].health, val1, val2, val3, val4);
+        mconf->manufct_level = val1;
+        mconf->manufct_required = val2;
+        mconf->selling_value = val3;
+        door_stats[door_id][0].health = val4;
+        door_stats[door_id][1].health = val4;
+    }
+    else
+    {
+        SCRPTERRLOG("Negative values not allowed when setting door '%d' to (%d,%d,%d,%d)", door_id, val1, val2, val3, val4);
+        return;
+    }
+}
+
+void command_set_computer_events(long plr_range_id, const char *evntname, long val1, long val2, long val3, long val4, long val5)
 {
   int plr_start;
   int plr_end;
@@ -1909,12 +2031,25 @@ void command_set_computer_events(long plr_range_id, const char *evntname, long v
               break;
           if (strcasecmp(evntname, event->name) == 0)
           {
-              SCRIPTDBG(7, "Changing computer %d event '%s' config from (%d,%d) to (%d,%d)", (int)i, event->name,
+              if (level_file_version > 0)
+              {
+                  SCRIPTDBG(7, "Changing computer %d event '%s' config from (%d,%d,%d,%d,%d) to (%d,%d,%d,%d,%d)", (int)i, event->name,
+                      (int)event->test_interval, (int)event->param1, (int)event->param2, (int)event->param3, (int)event->last_test_gameturn, (int)val1, (int)val2, (int)val3, (int)val4);
+                  event->test_interval = val1;
+                  event->param1 = val2;
+                  event->param2 = val3;
+                  event->param3 = val4;
+                  event->last_test_gameturn = val5;
+                  n++;
+              } else
+              {
+                SCRIPTDBG(7, "Changing computer %d event '%s' config from (%d,%d) to (%d,%d)", (int)i, event->name,
                   (int)event->param1, (int)event->param2, (int)val1, (int)val2);
-              event->param1 = val1;
-              event->param2 = val2;
-              n++;
-        }
+                  event->param1 = val1;
+                  event->param2 = val2;
+                  n++;
+              }
+          }
       }
   }
   if (n == 0)
@@ -2238,7 +2373,7 @@ void command_level_up_creature(long plr_range_id, const char *crtr_name, const c
   }
   if (count < 1)
   {
-    SCRPTERRLOG("Parameter has no positive value; discarding command", count);
+    SCRPTERRLOG("Parameter has no positive value; discarding command");
     return;
   }
   if (count > 9)
@@ -2508,7 +2643,7 @@ void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptL
         command_set_computer_checks(scline->np[0], scline->tp[1], scline->np[2], scline->np[3], scline->np[4], scline->np[5], scline->np[6]);
         break;
     case Cmd_SET_COMPUTER_EVENT:
-        command_set_computer_events(scline->np[0], scline->tp[1], scline->np[2], scline->np[3]);
+        command_set_computer_events(scline->np[0], scline->tp[1], scline->np[2], scline->np[3], scline->np[4], scline->np[5], scline->np[6]);
         break;
     case Cmd_SET_COMPUTER_PROCESS:
         command_set_computer_process(scline->np[0], scline->tp[1], scline->np[2], scline->np[3], scline->np[4], scline->np[5], scline->np[6]);
@@ -2596,6 +2731,12 @@ void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptL
         {
             game.system_flags |= GSF_RunAfterVictory;
         }
+        break;
+    case Cmd_SET_TRAP_CONFIGURATION:
+        command_set_trap_configuration(scline->tp[0], scline->np[1], scline->np[2], scline->np[3], scline->np[4], scline->np[5], scline->np[6], scline->np[7]);
+        break;
+    case Cmd_SET_DOOR_CONFIGURATION:
+        command_set_door_configuration(scline->tp[0], scline->np[1], scline->np[2], scline->np[3], scline->np[4]);
         break;
     default:
         SCRPTERRLOG("Unhandled SCRIPT command '%s'", scline->tcmnd);

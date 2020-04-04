@@ -224,6 +224,7 @@ long pinstfe_hand_whip(struct PlayerInfo *player, long *n)
 {
     struct PowerConfigStats* powerst = get_power_model_stats(PwrK_SLAP);
     struct Thing* thing = thing_get(player->influenced_thing_idx);
+    struct TrapConfigStats *trapst;
     if (!thing_exists(thing) || (thing->creation_turn != player->influenced_thing_creation) || (!thing_slappable(thing, player->id_number)))
     {
         player->influenced_thing_creation = 0;
@@ -271,8 +272,11 @@ long pinstfe_hand_whip(struct PlayerInfo *player, long *n)
       }
       break;
   case TCls_Trap:
-      if (thing->model == 1) //TODO CONFIG trap model dependency, make config option instead
-        external_activate_trap_shot_at_angle(thing, player->acamera->orient_a);
+      trapst = &trapdoor_conf.trap_cfgstats[thing->model];
+      if ((trapst->slappable == 1) && trap_is_active(thing))
+      {
+          external_activate_trap_shot_at_angle(thing, player->acamera->orient_a);
+      }
       break;
   case TCls_Object:
   {
@@ -390,8 +394,9 @@ long pinstfm_control_creature(struct PlayerInfo *player, long *n)
         cam->orient_a &= LbFPMath_AngleMask;
         thing = thing_get(player->influenced_thing_idx);
         struct CreatureStats* crstat = creature_stats_get_from_thing(thing);
+        struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
         // Now mv_a becomes a circle radius
-        mv_a = crstat->eye_height + thing->mappos.z.val;
+        mv_a = crstat->eye_height + (crstat->eye_height + (crstat->eye_height * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100) + thing->mappos.z.val;
         long mv_x = thing->mappos.x.val + distance_with_angle_to_coord_x(mv_a, cam->orient_a) - (MapCoordDelta)cam->mappos.x.val;
         long mv_y = thing->mappos.y.val + distance_with_angle_to_coord_y(mv_a, cam->orient_a) - (MapCoordDelta)cam->mappos.y.val;
         if (mv_x < -128)
@@ -919,7 +924,8 @@ void leave_creature_as_controller(struct PlayerInfo *player, struct Thing *thing
     set_engine_view(player, player->view_mode_restore);
     long i = player->acamera->orient_a;
     struct CreatureStats* crstat = creature_stats_get_from_thing(thing);
-    long k = thing->mappos.z.val + crstat->eye_height;
+    struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
+    long k = thing->mappos.z.val + (crstat->eye_height + (crstat->eye_height * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100);
     player->cameras[CamIV_Isometric].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
     player->cameras[CamIV_Isometric].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
     player->cameras[CamIV_FrontView].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
@@ -964,7 +970,8 @@ void leave_creature_as_passenger(struct PlayerInfo *player, struct Thing *thing)
   set_engine_view(player, player->view_mode_restore);
   long i = player->acamera->orient_a;
   struct CreatureStats* crstat = creature_stats_get_from_thing(thing);
-  long k = thing->mappos.z.val + crstat->eye_height;
+  struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
+  long k = thing->mappos.z.val + (crstat->eye_height + (crstat->eye_height * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100);
   player->cameras[CamIV_Isometric].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
   player->cameras[CamIV_Isometric].mappos.y.val = thing->mappos.y.val + distance_with_angle_to_coord_y(k,i);
   player->cameras[CamIV_FrontView].mappos.x.val = thing->mappos.x.val + distance_with_angle_to_coord_x(k,i);
@@ -1168,7 +1175,7 @@ TbBool player_place_trap_at(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumb
         return false;
     }
     traptng->mappos.z.val = get_thing_height_at(traptng, &traptng->mappos);
-    traptng->trap.byte_18t = 0;
+    traptng->trap.revealed = 0;
     struct Dungeon* dungeon = get_players_num_dungeon(plyr_idx);
     remove_workshop_item_from_amount_placeable(plyr_idx, TCls_Trap, tngmodel);
     if (placing_offmap_workshop_item(plyr_idx, TCls_Trap, tngmodel)) {

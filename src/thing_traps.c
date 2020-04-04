@@ -38,11 +38,24 @@
 #include "gui_topmsg.h"
 
 #include "keeperfx.hpp"
+#include "creature_senses.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 /******************************************************************************/
+
+//field_0; sprite_anim_idx; sprite_size_max; unanimated; anim_speed; field_11; field_12; field_13; size_xy; field_16; trigger_type; activation_type; created_itm_model;  field_1B; etc
+struct TrapStats trap_stats[] = {
+{0,           0,              0,                0,            0,        0,          0,      0,          0,      0,          0,          0,               0, 0, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0},
+{128,       861,            384,                1,            0,        0,          0,      1,        640,    512,          1,          1,              15, 9, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0}, //Boulder
+{1,         844,            256,                0,          256,        0,          0,      1,          0,      0,          2,          3,              19, 2, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0}, //Alarm
+{1,         845,            256,                0,          256,        0,          0,      1,          0,      0,          2,          2,              13, 4, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0}, //Gas
+{1,         846,            256,                0,          256,        0,          0,      1,          0,      0,          2,          3,              29, 4, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0}, //Lightning
+{1,         844,            256,                0,          256,        0,          0,      1,          0,      0,          2,          2,              14, 4, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0}, //WoP
+{1,         845,            256,                0,          256,        0,          0,      1,          0,      0,          2,          4,              12, 4, 0, 0, 0, {0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}, 0, 0, 0}, //Lava
+};
+
 TbBool destroy_trap(struct Thing *traptng)
 {
     if ((traptng->trap.num_shots == 0) && !is_neutral_thing(traptng) && !is_hero_thing(traptng)) {
@@ -54,14 +67,16 @@ TbBool destroy_trap(struct Thing *traptng)
 
 TbBool trap_is_active(const struct Thing *thing)
 {
-    return ((thing->trap.num_shots > 0) && (thing->trap.long_14t <= game.play_gameturn));
+    return ((thing->trap.num_shots > 0) && (thing->trap.rearm_turn <= game.play_gameturn));
 }
 
 TbBool trap_is_slappable(const struct Thing *thing, PlayerNumber plyr_idx)
 {
+    struct TrapConfigStats *trapst;
     if (thing->owner == plyr_idx)
     {
-        return (thing->model == 1) && trap_is_active(thing);
+        trapst = &trapdoor_conf.trap_cfgstats[thing->model];
+        return (trapst->slappable == 1) && trap_is_active(thing);
     }
     return false;
 }
@@ -406,26 +421,30 @@ void activate_trap_slab_change(struct Thing *traptng, struct Thing *creatng)
 
 void activate_trap(struct Thing *traptng, struct Thing *creatng)
 {
-    traptng->trap.byte_18t = 1;
-    const struct TrapStats* trapstat = &trap_stats[traptng->model];
-    //TODO CONFIG trap model dependency, make config option instead
-    if (traptng->model == 2) {
+    traptng->trap.revealed = 1;
+    const struct TrapStats *trapstat = &trap_stats[traptng->model];
+    struct TrapConfigStats *trapst = &trapdoor_conf.trap_cfgstats[traptng->model];
+    if (trapst->notify == 1)
+    {
         event_create_event(traptng->mappos.x.val, traptng->mappos.y.val, EvKind_AlarmTriggered, traptng->owner, 0);
     }
     thing_play_sample(traptng, 176, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     switch (trapstat->activation_type)
     {
-    case 1:
+    case TrpAcT_HeadforTarget90:
         activate_trap_shot_head_for_target90(traptng, creatng);
         break;
-    case 2:
+    case TrpAcT_EffectonTrap:
         activate_trap_effect_on_trap(traptng, creatng);
         break;
-    case 3:
+    case TrpAcT_ShotonTrap:
         activate_trap_shot_on_trap(traptng, creatng);
         break;
-    case 4:
+    case TrpAcT_SlapChange:
         activate_trap_slab_change(traptng, creatng);
+        break;
+    case TrpAcT_CreatureShot:
+        creature_fire_shot(traptng, creatng,trapstat->created_itm_model,1,1);
         break;
     default:
         ERRORLOG("Illegal trap activation type %d",(int)trapstat->activation_type);
@@ -496,6 +515,18 @@ TbBool update_trap_trigger_pressure(struct Thing *traptng)
     return false;
 }
 
+TbBool update_trap_trigger_line_of_sight(struct Thing* traptng)
+{
+    struct Thing* trgtng = get_nearest_enemy_creature_possible_to_attack_by(traptng);
+
+    if (line_of_sight_2d(&traptng->mappos, &trgtng->mappos))
+    {
+        activate_trap(traptng, trgtng);
+        return true;
+    }
+    return false;
+}
+
 TngUpdateRet update_trap_trigger(struct Thing *traptng)
 {
     if (traptng->trap.num_shots <= 0) {
@@ -504,11 +535,14 @@ TngUpdateRet update_trap_trigger(struct Thing *traptng)
     TbBool do_trig;
     switch (trap_stats[traptng->model].trigger_type)
     {
-    case 1:
+    case TrpTrg_LineOfSight90:
         do_trig = update_trap_trigger_line_of_sight_90(traptng);
         break;
-    case 2:
+    case TrpTrg_Pressure:
         do_trig = update_trap_trigger_pressure(traptng);
+        break;
+    case TrpTrg_LineOfSight:
+        do_trig = update_trap_trigger_line_of_sight(traptng);
         break;
     default:
         ERRORLOG("Illegal trap trigger type %d",(int)trap_stats[traptng->model].trigger_type);
@@ -518,7 +552,7 @@ TngUpdateRet update_trap_trigger(struct Thing *traptng)
     if (do_trig)
     {
         const struct ManfctrConfig* mconf = &game.traps_config[traptng->model];
-        traptng->trap.long_14t = game.play_gameturn + mconf->shots_delay;
+        traptng->trap.rearm_turn = game.play_gameturn + mconf->shots_delay;
         int n = traptng->trap.num_shots;
         if ((n > 0) && (n != 255))
         {
@@ -602,13 +636,13 @@ struct Thing *create_trap(struct Coord3d *pos, ThingModel trpkind, PlayerNumber 
     } else {
         start_frame = 0;
     }
-    set_thing_draw(thing, trapstat->sprite_anim_idx, trapstat->anim_speed, trapstat->sprite_size_max, trapstat->field_C, start_frame, 2);
+    set_thing_draw(thing, trapstat->sprite_anim_idx, trapstat->anim_speed, trapstat->sprite_size_max, trapstat->unanimated, start_frame, 2);
     if (trapstat->field_11) {
         thing->field_4F |= TF4F_Unknown02;
     } else {
         thing->field_4F &= ~TF4F_Unknown02;
     }
-    if (trapstat->field_C) {
+    if (trapstat->unanimated) {
         thing->field_4F |= TF4F_Unknown40;
     } else {
         thing->field_4F &= ~TF4F_Unknown40;

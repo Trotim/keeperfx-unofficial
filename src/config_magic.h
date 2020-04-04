@@ -128,6 +128,7 @@ enum ShotModelFlags {
     ShMF_NoStun         = 0x0080,
     ShMF_NoHit          = 0x0100,
     ShMF_StrengthBased  = 0x0200,
+    ShMF_AlarmsUnits    = 0x0400,
 };
 
 enum PowerCanCastFlags {
@@ -237,6 +238,7 @@ struct ShotConfigStats {
     short firing_sound;
     short shot_sound;
     unsigned char firing_sound_variants;
+    short max_range;
 };
 
 typedef unsigned char (*Expand_Check_Func)(void);

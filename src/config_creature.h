@@ -230,6 +230,7 @@ struct CreatureModelConfig {
  * Structure which stores levelling up stats.
  */
 struct CreatureExperience {
+    long size_increase_on_exp;
     long pay_increase_on_exp;
     long spell_damage_increase_on_exp;
     long range_increase_on_exp;
@@ -259,6 +260,7 @@ struct CreatureConfig {
     ThingModel special_digger_good;
     ThingModel special_digger_evil;
     ThingModel spectator_breed;
+    long sprite_size;
 };
 
 /******************************************************************************/

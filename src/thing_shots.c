@@ -298,7 +298,7 @@ void process_dig_shot_hit_wall(struct Thing *thing, unsigned long blocked_flags)
     {
         return;
     }
-    int damage = thing->word_14;
+    int damage = thing->damagepoints;
     if ((damage >= slb->health) && !slab_kind_is_indestructible(slb->kind))
     {
         if ((mapblk->flags & SlbAtFlg_Valuable) != 0)
@@ -415,7 +415,7 @@ TbBool shot_hit_wall_at(struct Thing *shotng, struct Coord3d *pos)
                 {
                     struct Coord3d target_pos;
                     target_pos.x.val = shotng->price.number;
-                    target_pos.y.val = shotng->shot.byte_19 * 300;
+                    target_pos.y.val = shotng->shot.byte_19 * crtr_conf.sprite_size;
                     target_pos.z.val = pos->z.val;
                     const MapCoordDelta dist = get_2d_distance(pos, &target_pos);
                     if (dist <= 800) return detonate_shot(shotng);
@@ -624,14 +624,14 @@ long shot_hit_object_at(struct Thing *shotng, struct Thing *target, struct Coord
             thing_play_sample(target, i, NORMAL_PITCH, 0, 3, 0, 3, FULL_LOUDNESS);
         }
     }
-    if (shotng->word_14)
+    if (shotng->damagepoints)
     {
         // Drain allows caster to regain half of damage
         if ((shotst->model_flags & ShMF_LifeDrain) && thing_is_creature(creatng)) 
         {
-            apply_health_to_thing(creatng, shotng->word_14/2);
+            apply_health_to_thing(creatng, shotng->damagepoints/2);
         }
-        apply_damage_to_thing(target, shotng->word_14, shotst->damage_type, -1);
+        apply_damage_to_thing(target, shotng->damagepoints, shotst->damage_type, -1);
         target->byte_13 = 20;
     }
     create_relevant_effect_for_shot_hitting_thing(shotng, target);
@@ -656,9 +656,11 @@ long get_damage_of_melee_shot(const struct Thing *shotng, const struct Thing *ta
     if (hitchance > 96) {
         hitchance = 96;
     }
-    if (ACTION_RANDOM(256) < (128+hitchance))
-      return shotng->shot.damage;
-    return 0;
+    if (ACTION_RANDOM(256) < (128 + hitchance))
+    {
+        return shotng->shot.damage;
+    }
+    return -1;
 }
 
 long project_damage_of_melee_shot(long shot_dexterity, long shot_damage, const struct Thing *target)
@@ -880,10 +882,11 @@ long shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct Coo
         if (!thing_is_invalid(killertng))
         {
             struct CreatureStats* crstat = creature_stats_get_from_thing(killertng);
+            struct CreatureControl* cctrl = creature_control_get_from_thing(killertng);
             struct Coord3d pos2;
             pos2.x.val = killertng->mappos.x.val;
             pos2.y.val = killertng->mappos.y.val;
-            pos2.z.val = crstat->eye_height + killertng->mappos.z.val;
+            pos2.z.val = crstat->eye_height + ((crstat->eye_height * crtr_conf.exp.size_increase_on_exp * cctrl->explevel) / 100) + killertng->mappos.z.val;
             clear_thing_acceleration(shotng);
             set_thing_acceleration_angles(shotng, get_angle_xy_to(&shotng->mappos, &pos2), get_angle_yz_to(&shotng->mappos, &pos2));
             shotng->parent_idx = trgtng->parent_idx;
@@ -906,7 +909,7 @@ long shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct Coo
     {
         if ((get_creature_model_flags(trgtng) & CMF_ImmuneToBoulder) != 0)
         {
-            struct Thing* efftng = create_effect(&trgtng->mappos, TngEff_Unknown14, trgtng->owner);
+            struct Thing* efftng = create_effect(&trgtng->mappos, TngEff_WoPExplosion, trgtng->owner);
             if (!thing_is_invalid(efftng)) {
                 efftng->byte_16 = 8;
             }
@@ -1219,6 +1222,10 @@ TngUpdateRet update_shot(struct Thing *thing)
                 thing->state_flags |= TF1_PushAdd;
             }
         }
+        if (shotst->model_flags & ShMF_AlarmsUnits)
+        {
+            affect_nearby_friends_with_alarm(thing);
+        }
         switch (thing->model)
         {
         case ShM_Firebomb:
@@ -1289,14 +1296,11 @@ TngUpdateRet update_shot(struct Thing *thing)
             {
                 struct Coord3d target_pos;
                 target_pos.x.val = thing->price.number;
-                target_pos.y.val = thing->shot.byte_19 * 300;
+                target_pos.y.val = thing->shot.byte_19 * crtr_conf.sprite_size;
                 target_pos.z.val = target->mappos.z.val;
                 dist = get_2d_distance(&thing->mappos, &target_pos);
                 if (dist <= 260) hit = true;
             }
-            break;
-        case ShM_Alarm:
-            affect_nearby_friends_with_alarm(thing);
             break;
         case ShM_GodLightBall:
             update_god_lightning_ball(thing);
