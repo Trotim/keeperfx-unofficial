@@ -144,6 +144,30 @@ TbBool good_setup_attack_rooms(struct Thing *creatng, long dngn_id)
     return true;
 }
 
+TbBool good_setup_defend_rooms(struct Thing* creatng)
+{
+    struct Room* room = find_nearest_room_to_vandalise(creatng, creatng->owner, NavRtF_NoOwner);
+    if (room_is_invalid(room))
+    {
+        return false;
+    }
+    struct Coord3d pos;
+    if (!find_random_valid_position_for_thing_in_room(creatng, room, &pos) || !creature_can_navigate_to_with_storage(creatng, &pos, NavRtF_NoOwner))
+    {
+        ERRORLOG("The %s index %d cannot defend %s because it cannot reach position within it", thing_model_name(creatng), (int)creatng->index, room_code_name(room->kind));
+        return false;
+    }
+    if (!setup_random_head_for_room(creatng, room, NavRtF_NoOwner))
+    {
+        ERRORLOG("The %s index %d cannot defend %s because it cannot head for it", thing_model_name(creatng), (int)creatng->index, room_code_name(room->kind));
+        return false;
+    }
+    struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
+    creatng->continue_state = CHeroTsk_AttackDnHeart; //todo: change to CHeroTsk_DefendRooms
+    cctrl->target_room_id = room->index;
+    return true;
+}
+
 TbBool good_setup_loot_treasure_room(struct Thing *thing, long dngn_id)
 {
     struct Room* room = find_random_room_with_used_capacity_creature_can_navigate_to(thing, dngn_id, RoK_TREASURE, NavRtF_Default);
