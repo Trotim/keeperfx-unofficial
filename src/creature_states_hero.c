@@ -497,6 +497,27 @@ TbBool good_setup_wander_to_dungeon_heart(struct Thing *creatng, PlayerNumber pl
     return true;
 }
 
+TbBool good_setup_wander_to_own_heart(struct Thing* creatng)
+{
+    SYNCDBG(7, "Starting");
+    struct Thing* heartng = get_player_soul_container(creatng->owner);
+    TRACE_THING(heartng);
+    if (thing_is_invalid(heartng))
+    {
+        WARNLOG("The %s index %d tried to wander to player %d which has no heart", thing_model_name(creatng), (int)creatng->index, creatng->owner);
+        return false;
+    }
+
+    if (!setup_person_move_to_coord(creatng, &heartng->mappos, NavRtF_Default))
+    {
+        WARNLOG("Hero %s index %d can't move to heart %d at (%d,%d).", thing_model_name(creatng), (int)creatng->index,
+            (int)heartng->index, (int)heartng->mappos.x.stl.num, (int)heartng->mappos.y.stl.num);
+        return false;
+    }
+    creatng->continue_state = CrSt_PatrolHere;
+    return true;
+}
+
 TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber target_plyr_idx)
 {
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
