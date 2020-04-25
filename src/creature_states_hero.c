@@ -163,7 +163,7 @@ TbBool good_setup_defend_rooms(struct Thing* creatng)
         return false;
     }
     struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
-    creatng->continue_state = CHeroTsk_AttackDnHeart; //todo: change to CHeroTsk_DefendRooms
+    creatng->continue_state = CHeroTsk_DefendRooms;
     cctrl->target_room_id = room->index;
     return true;
 }
@@ -556,7 +556,8 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
         cctrl->party_objective = CHeroTsk_AttackDnHeart;
         return false;
     case CHeroTsk_AttackDnHeart:
-        if (good_setup_wander_to_dungeon_heart(creatng, target_plyr_idx)) {
+        if (good_setup_wander_to_dungeon_heart(creatng, target_plyr_idx)) 
+        {
             return true;
         }
         ERRORLOG("Cannot wander to player %d heart", (int)target_plyr_idx);
@@ -631,6 +632,34 @@ TbBool good_creature_setup_task_in_dungeon(struct Thing *creatng, PlayerNumber t
         }
         WARNLOG("Can't attack player %d creature, switching to attack heart", (int)cctrl->party.target_plyr_idx);
         cctrl->party_objective = CHeroTsk_AttackDnHeart;
+        return false;
+    case CHeroTsk_DefendSpawn:
+        if (patrol_here(creatng))
+        {
+            return true;
+        }
+        if (patrolling(creatng))
+        {
+            return true;
+        }
+        WARNLOG("Can't patrol location, switching to defending rooms");
+        cctrl->party_objective = CHeroTsk_DefendRooms;
+        return false;
+    case CHeroTsk_DefendHeart:
+        if (good_setup_wander_to_own_heart(creatng))
+        {
+            return true;
+        }
+        WARNLOG("Can't defend own heart, switching to attack player %d heart", (int)cctrl->party.target_plyr_idx);
+        cctrl->party_objective = CHeroTsk_AttackDnHeart;
+        return false;
+    case CHeroTsk_DefendRooms:
+        if (good_setup_defend_rooms(creatng))
+        {
+            return true;
+        }
+        WARNLOG("Can't defend rooms, switching to defending heart");
+        cctrl->party_objective = CHeroTsk_DefendHeart;
         return false;
     case CHeroTsk_Default:
     default:
