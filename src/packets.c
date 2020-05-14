@@ -359,9 +359,8 @@ TbBool player_sell_room_at_subtile(long plyr_idx, long stl_x, long stl_y)
         ERRORLOG("No room to delete at subtile (%d,%d)",(int)stl_x,(int)stl_y);
         return false;
     }
-    //TODO CONFIG sell revenue percentage should be inside config files
     struct RoomStats* rstat = room_stats_get_for_room(room);
-    long revenue = compute_value_percentage(rstat->cost, ROOM_SELL_REVENUE_PERCENT);
+    long revenue = compute_value_percentage(rstat->cost, gameadd.room_sale_percent);
     if (room->owner != game.neutral_player_num)
     {
         struct Dungeon* dungeon = get_players_num_dungeon(room->owner);
@@ -1863,7 +1862,7 @@ TbBool process_players_global_packet_action(PlayerNumber plyr_idx)
           set_player_state(player, PSt_PlaceDoor, thing->model);
       }
       return 0;
-  case PckA_Unknown087:
+  case PckA_ZoomToPosition:
       if (player->work_state == PSt_CreatrInfo)
         turn_off_query(plyr_idx);
       player->zoom_to_pos_x = pckt->actn_par1;

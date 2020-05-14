@@ -58,6 +58,7 @@ const struct NamedCommand rules_game_commands[] = {
   {"MAXGOLDLOOKUP",              16},
   {"MINGOLDTORECORD",            17},
   {"PAYDAYGAP",                  18},
+  {"PAYDAYSPEED",                19},
   {"SLABCOLLAPSETIME",           20},
   {"DUNGEONHEARTHEALTH",         21},
   {"DUNGEONHEARTHEALTIME",       22},
@@ -66,6 +67,8 @@ const struct NamedCommand rules_game_commands[] = {
   {"PRESERVECLASSICBUGS",        25},
   {"DEATHMATCHSTATUEREAPPERTIME",26},
   {"DEATHMATCHOBJECTREAPPERTIME",27},
+  {"GEMEFFECTIVENESS",           28},
+  {"ROOMSELLGOLDBACKPERCENT",    29},
   {NULL,                          0},
   };
 
@@ -287,6 +290,9 @@ TbBool parse_rules_game_blocks(char *buf, long len, const char *config_textname,
         game.dungeon_heart_heal_health = 1;
         game.hero_door_wait_time = 100;
         gameadd.classic_bugs_flags = ClscBug_None;
+        gameadd.room_sale_percent = 50;
+        gameadd.gem_effectiveness = 17;
+        gameadd.pay_day_speed = 100;
     }
     // Find the block
     char block_buf[COMMAND_WORD_LEN];
@@ -524,6 +530,19 @@ TbBool parse_rules_game_blocks(char *buf, long len, const char *config_textname,
                   COMMAND_TEXT(cmd_num),block_buf,config_textname);
             }
             break;
+        case 19: // PAYDAYSPEED
+            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+            {
+                k = atoi(word_buf);
+                gameadd.pay_day_speed = k;
+                n++;
+            }
+            if (n < 1)
+            {
+                CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num), block_buf, config_textname);
+            }
+            break;
         case 20: // SLABCOLLAPSETIME
             //Unused
             break;
@@ -631,6 +650,32 @@ TbBool parse_rules_game_blocks(char *buf, long len, const char *config_textname,
             break;
         case 27: // DEATHMATCHOBJECTREAPPERTIME
             //Unused
+            break;
+        case 28: // GEMEFFECTIVENESS
+            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+            {
+                k = atoi(word_buf);
+                gameadd.gem_effectiveness = k;
+                n++;
+            }
+            if (n < 1)
+            {
+                CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num), block_buf, config_textname);
+            }
+            break;
+        case 29: // ROOMSELLGOLDBACKPERCENT
+            if (get_conf_parameter_single(buf, &pos, len, word_buf, sizeof(word_buf)) > 0)
+            {
+                k = atoi(word_buf);
+                gameadd.room_sale_percent = k;
+                n++;
+            }
+            if (n < 1)
+            {
+                CONFWRNLOG("Incorrect value of \"%s\" parameter in [%s] block of %s file.",
+                    COMMAND_TEXT(cmd_num), block_buf, config_textname);
+            }
             break;
         case 0: // comment
             break;

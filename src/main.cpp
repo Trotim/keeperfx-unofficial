@@ -1540,7 +1540,7 @@ short zoom_to_next_annoyed_creature(void)
     {
       return false;
     }
-    set_players_packet_action(player, PckA_Unknown087, thing->mappos.x.val, thing->mappos.y.val, 0, 0);
+    set_players_packet_action(player, PckA_ZoomToPosition, thing->mappos.x.val, thing->mappos.y.val, 0, 0);
     return true;
 }
 
@@ -2454,7 +2454,7 @@ void count_players_creatures_being_paid(int *creatures_count)
 void process_payday(void)
 {
     //_DK_process_payday();
-    game.field_15033A++;
+    game.pay_day_progress = game.pay_day_progress + (gameadd.pay_day_speed / 100);
     PlayerNumber plyr_idx;
     for (plyr_idx=0; plyr_idx < PLAYERS_COUNT; plyr_idx++)
     {
@@ -2468,10 +2468,10 @@ void process_payday(void)
             compute_and_update_player_payday_total(plyr_idx);
         }
     }
-    if (game.pay_day_gap <= game.field_15033A)
+    if (game.pay_day_gap <= game.pay_day_progress)
     {
         output_message(SMsg_Payday, 0, true);
-        game.field_15033A = 0;
+        game.pay_day_progress = 0;
         // Prepare a list which counts how many creatures of each owner needs pay
         int player_paid_creatures_count[PLAYERS_EXT_COUNT];
         PlayerNumber plyr_idx;
@@ -4074,7 +4074,7 @@ void init_level(void)
     init_messages();
     game.creatures_tend_imprison = 0;
     game.creatures_tend_flee = 0;
-    game.field_15033A = 0;
+    game.pay_day_progress = 0;
     game.chosen_room_kind = 0;
     game.chosen_room_spridx = 0;
     game.chosen_room_tooltip = 0;
@@ -4650,7 +4650,16 @@ short process_command_line(unsigned short argc, char *argv[])
   }
 
   if (level_num == LEVELNUMBER_ERROR)
-    level_num = first_singleplayer_level();
+  {
+      if (first_singleplayer_level() > 0)
+      {
+          level_num = first_singleplayer_level();
+      }
+      else
+      {
+          level_num = 1;
+      }
+  }
   start_params.selected_level_number = level_num;
   my_player_number = default_loc_player;
   return (bad_param==0);
@@ -4692,7 +4701,8 @@ int LbBullfrogMain(unsigned short argc, char *argv[])
     {
       if ((install_info.lang_id == Lang_Japanese) ||
           (install_info.lang_id == Lang_ChineseInt) ||
-          (install_info.lang_id == Lang_ChineseTra))
+          (install_info.lang_id == Lang_ChineseTra) ||
+          (install_info.lang_id == Lang_Korean))
       {
         switch (install_info.lang_id)
         {
@@ -4704,6 +4714,9 @@ int LbBullfrogMain(unsigned short argc, char *argv[])
             break;
         case Lang_ChineseTra:
             dbc_set_language(3);
+            break;
+        case Lang_Korean:
+            dbc_set_language(4);
             break;
         }
         if (dbc_initialize("fxdata"))

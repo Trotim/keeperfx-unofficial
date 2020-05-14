@@ -2415,7 +2415,8 @@ TbBool kill_creature(struct Thing *creatng, struct Thing *killertng,
     if (((flags & CrDed_NoUnconscious) != 0) || (!player_has_room_of_role(killertng->owner,RoRoF_Prison))
       || (!player_creature_tends_to(killertng->owner,CrTend_Imprison)) ||
         ((get_creature_model_flags(creatng) & CMF_IsEvil) && (ACTION_RANDOM(100) > gameadd.stun_enemy_chance_evil)) ||
-        (!(get_creature_model_flags(creatng) & CMF_IsEvil) && (ACTION_RANDOM(100) > gameadd.stun_enemy_chance_good)))
+        (!(get_creature_model_flags(creatng) & CMF_IsEvil) && (ACTION_RANDOM(100) > gameadd.stun_enemy_chance_good)) ||
+        (get_creature_model_flags(creatng) & CMF_NoImprisonment) )
     {
         if ((flags & CrDed_NoEffects) == 0) {
             cause_creature_death(creatng, flags);
@@ -4163,8 +4164,8 @@ void go_to_next_creature_of_model_and_gui_job(long crmodel, long job_idx)
     struct Thing* creatng = find_players_next_creature_of_breed_and_gui_job(crmodel, job_idx, my_player_number, 0);
     if (!thing_is_invalid(creatng))
     {
-        struct Packet* pckt = get_packet_direct(my_player_number);
-        set_packet_action(pckt, PckA_Unknown087, creatng->mappos.x.val, creatng->mappos.y.val, 0, 0);
+        struct PlayerInfo* player = get_my_player();
+        set_players_packet_action(player, PckA_ZoomToPosition, creatng->mappos.x.val, creatng->mappos.y.val, 0, 0);
     }
 }
 

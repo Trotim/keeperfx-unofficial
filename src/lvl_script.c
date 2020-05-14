@@ -51,6 +51,8 @@
 #include "creature_groups.h"
 #include "room_library.h"
 #include "room_entrance.h"
+#include "room_util.h"
+#include "map_blocks.h"
 #include "lvl_filesdk1.h"
 #include "frontend.h"
 #include "game_merge.h"
@@ -66,7 +68,7 @@ extern "C" {
 /******************************************************************************/
 /**
  * Descriptions of script commands for parser.
- * Arguments are: A-string, N-integer, C-creature model, P- player, R- room kind, L- location, O- operator
+ * Arguments are: A-string, N-integer, C-creature model, P- player, R- room kind, L- location, O- operator, S- slab kind
  * Lower case letters are optional arguments.
  */
 const struct CommandDesc command_desc[] = {
@@ -144,6 +146,10 @@ const struct CommandDesc command_desc[] = {
   {"SET_GAME_RULE",                     "AN      ", Cmd_SET_GAME_RULE},
   {"SET_TRAP_CONFIGURATION",            "ANNNNNNN", Cmd_SET_TRAP_CONFIGURATION},
   {"SET_DOOR_CONFIGURATION",            "ANNNN   ", Cmd_SET_DOOR_CONFIGURATION},
+  {"CHANGE_SLAB_OWNER",                 "NNP     ", Cmd_CHANGE_SLAB_OWNER},
+  {"CHANGE_SLAB_TYPE",                  "NNS     ", Cmd_CHANGE_SLAB_TYPE},
+  {"IF_SLAB_OWNER",                     "NNP     ", Cmd_IF_SLAB_OWNER},
+  {"IF_SLAB_TYPE",                      "NNS     ", Cmd_IF_SLAB_TYPE},
   {NULL,                                "        ", Cmd_NONE},
 };
 
@@ -224,6 +230,7 @@ const struct NamedCommand player_desc[] = {
   {"PLAYER3",          PLAYER3},
   {"PLAYER_GOOD",      PLAYER_GOOD},
   {"ALL_PLAYERS",      ALL_PLAYERS},
+  {"PLAYER_NEUTRAL",   PLAYER_NEUTRAL},
   {NULL,               0},
 };
 
@@ -386,19 +393,24 @@ const struct NamedCommand creature_select_criteria_desc[] = {
 };
 
 const struct NamedCommand game_rule_desc[] = {
-  {"BodiesForVampire",        1},
-  {"PrisonSkeletonChance",    2},
-  {"GhostConvertChance",      3},
-  {"TortureConvertChance",    4},
-  {"TortureDeathChance",      5},
-  {"FoodGenerationSpeed",     6},
-  {"StunEvilEnemyChance",     7},
-  {"StunGoodEnemyChance",     8},
-  {"BodyRemainsFor",          9},
-  {"FightHateKillValue",     10},
-  {"PreserveClassicBugs",    11},
-  {"DungeonHeartHealHealth", 12},
-  {"ImpWorkExperience",      13},
+  {"BodiesForVampire",         1},
+  {"PrisonSkeletonChance",     2},
+  {"GhostConvertChance",       3},
+  {"TortureConvertChance",     4},
+  {"TortureDeathChance",       5},
+  {"FoodGenerationSpeed",      6},
+  {"StunEvilEnemyChance",      7},
+  {"StunGoodEnemyChance",      8},
+  {"BodyRemainsFor",           9},
+  {"FightHateKillValue",      10},
+  {"PreserveClassicBugs",     11},
+  {"DungeonHeartHealHealth",  12},
+  {"ImpWorkExperience",       13},
+  {"GemEffectiveness",        14},
+  {"RoomSellGoldBackPercent", 15},
+  {"PayDayGap",               16},
+  {"PayDaySpeed",             17},
+  {"PayDayProgress",          18},
   {NULL,                      0},
 };
 
@@ -755,7 +767,7 @@ TbBool get_map_location_id_f(const char *locname, TbMapLocation *location, const
     long i = get_rid(player_desc, locname);
     if (i != -1)
     {
-      if (i != ALL_PLAYERS) {
+      if ((i != ALL_PLAYERS) && (i != PLAYER_NEUTRAL)) {
           if (!player_has_heart(i)) {
               WARNMSG("%s(line %lu): Target player %d has no heart",func_name,ln_num, (int)i);
           }
@@ -1447,6 +1459,26 @@ void command_if_action_point(long apt_num, long plr_range_id)
         return;
     }
     command_add_condition(plr_range_id, 0, SVar_ACTION_POINT_TRIGGERED, apt_idx, 0);
+}
+
+void command_if_slab_owner(MapSlabCoord slb_x, MapSlabCoord slb_y, long plr_range_id)
+{
+    if (game.script.conditions_num >= CONDITIONS_COUNT)
+    {
+        SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+        return;
+    }
+    command_add_condition(slb_x, 1, SVar_SLAB_OWNER, slb_y, plr_range_id);
+}
+
+void command_if_slab_type(MapSlabCoord slb_x, MapSlabCoord slb_y, long slab_type)
+{
+    if (game.script.conditions_num >= CONDITIONS_COUNT)
+    {
+        SCRPTERRLOG("Too many (over %d) conditions in script", CONDITIONS_COUNT);
+        return;
+    }
+    command_add_condition(slb_x, 1, SVar_SLAB_TYPE, slb_y, slab_type);
 }
 
 void command_computer_player(long plr_range_id, long comp_model)
@@ -2305,6 +2337,16 @@ void command_reveal_map_rect(long plr_range_id, long x, long y, long w, long h)
     command_add_value(Cmd_REVEAL_MAP_RECT, plr_range_id, x, y, (h<<16)+w);
 }
 
+void command_change_slab_owner(long x, long y, long plr_range_id)
+{
+    command_add_value(Cmd_CHANGE_SLAB_OWNER, plr_range_id, x, y, 0);
+}
+
+void command_change_slab_type(long x, long y, long slab_type)
+{
+    command_add_value(Cmd_CHANGE_SLAB_TYPE, 0, x, y, slab_type);
+}
+
 void command_reveal_map_location(long plr_range_id, const char *locname, long range)
 {
     TbMapLocation location;
@@ -2668,6 +2710,12 @@ void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptL
     case Cmd_IF_CONTROLS:
         command_if_controls(scline->np[0], scline->tp[1], scline->tp[2], scline->np[3]);
         break;
+    case Cmd_IF_SLAB_OWNER:
+        command_if_slab_owner(scline->np[0], scline->np[1], scline->np[2]);
+        break;
+    case Cmd_IF_SLAB_TYPE:
+        command_if_slab_type(scline->np[0], scline->np[1], scline->np[2]);
+        break;
     case Cmd_SET_COMPUTER_GLOBALS:
         command_set_computer_globals(scline->np[0], scline->np[1], scline->np[2], scline->np[3], scline->np[4], scline->np[5], scline->np[6]);
         break;
@@ -2774,6 +2822,12 @@ void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptL
     case Cmd_SET_DOOR_CONFIGURATION:
         command_set_door_configuration(scline->tp[0], scline->np[1], scline->np[2], scline->np[3], scline->np[4]);
         break;
+    case Cmd_CHANGE_SLAB_OWNER:
+        command_change_slab_owner(scline->np[0], scline->np[1], scline->np[2]);
+        break;
+    case Cmd_CHANGE_SLAB_TYPE:
+        command_change_slab_type(scline->np[0], scline->np[1], scline->np[2]);
+        break;
     default:
         SCRPTERRLOG("Unhandled SCRIPT command '%s'", scline->tcmnd);
         break;
@@ -2817,6 +2871,15 @@ TbBool script_command_param_to_number(char type_chr, struct ScriptLine *scline, 
         }
         scline->np[idx] = room_id;
         };break;
+    case 'S': {
+        long slab_id = get_rid(slab_desc, scline->tp[idx]);
+        if (slab_id == -1)
+        {
+            SCRPTERRLOG("Unknown slab kind, \"%s\"", scline->tp[idx]);
+            return false;
+        }
+        scline->np[idx] = slab_id;
+    }; break;
     case 'L':{
         TbMapLocation loc;
         if (!get_map_location_id(scline->tp[idx], &loc)) {
@@ -3416,10 +3479,13 @@ long script_support_create_thing_at_action_point(long apt_idx, ThingClass tngcla
     }
 
     struct CreatureControl* cctrl = creature_control_get_from_thing(thing);
-    struct Thing* heartng = get_player_soul_container(thing->owner);
-    if ( thing_exists(heartng) && creature_can_navigate_to(thing, &heartng->mappos, NavRtF_NoOwner) )
+    if (thing->owner != PLAYER_NEUTRAL)
     {
-        cctrl->field_AE |= 0x01;
+        struct Thing* heartng = get_player_soul_container(thing->owner);
+        if (thing_exists(heartng) && creature_can_navigate_to(thing, &heartng->mappos, NavRtF_NoOwner))
+        {
+            cctrl->field_AE |= 0x01;
+        }
     }
 
     if ((get_creature_model_flags(thing) & CMF_IsLordOTLand) != 0)
@@ -3680,13 +3746,30 @@ struct Thing *script_process_new_party(struct Party *party, PlayerNumber plyr_id
                   grptng = thing;
               } else
               {
-                  struct Thing* bestng = get_highest_experience_and_score_creature_in_group(grptng);
+                  struct Thing* bestng = get_best_creature_to_lead_group(grptng);
                   struct CreatureControl* bestctrl = creature_control_get_from_thing(bestng);
-                  if ((cctrl->explevel >= bestctrl->explevel) && (get_creature_thing_score(thing) > get_creature_thing_score(bestng)))
+                  // If current leader wants to defend, and current unit has an objective, new unit will be group leader.
+                  if ((cctrl->party_objective != CHeroTsk_DefendParty) && (bestctrl->party_objective == CHeroTsk_DefendParty))
                   {
                       add_creature_to_group_as_leader(thing, grptng);
                       leadtng = thing;
                   } else
+                  // if best and current unit want to defend party, or neither do, the strongest will be leader
+                  if (((cctrl->party_objective == CHeroTsk_DefendParty) && (bestctrl->party_objective == CHeroTsk_DefendParty)) || ((cctrl->party_objective != CHeroTsk_DefendParty) && (bestctrl->party_objective != CHeroTsk_DefendParty)))
+                  {
+                      if ((cctrl->explevel > bestctrl->explevel) || ((cctrl->explevel == bestctrl->explevel) && (get_creature_thing_score(thing) > get_creature_thing_score(bestng))))
+                      {
+                          add_creature_to_group_as_leader(thing, grptng);
+                          leadtng = thing;
+                      }
+                      else
+                      // If it's weaker than the current leader, joind as a group
+                      {
+                          add_creature_to_group(thing, grptng);
+                      }
+                  }
+                  else
+                  // If it wants to defend, but the group leader has an objective, just add it to group
                   {
                       add_creature_to_group(thing, grptng);
                   }
@@ -4092,6 +4175,18 @@ long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, unsigned 
             return min(game.pool.crtr_kind[validx%CREATURE_TYPES_COUNT],dungeon->max_creatures_attracted - (long)dungeon->num_active_creatrs);
         }
         return 0;
+    case SVar_SLAB_OWNER: //IF_SLAB_OWNER
+    {
+        long varib_id = get_slab_number(plyr_idx, validx);
+        struct SlabMap* slb = get_slabmap_direct(varib_id);
+        return slabmap_owner(slb);
+    }
+    case SVar_SLAB_TYPE: //IF_SLAB_TYPE
+    {
+        long varib_id = get_slab_number(plyr_idx, validx);
+        struct SlabMap* slb = get_slabmap_direct(varib_id);
+        return slb->kind;
+    }
     case SVar_CONTROLS_CREATURE: // IF_CONTROLS(CREATURE)
         dungeon = get_dungeon(plyr_idx);
         return dungeon->owned_creatures_of_model[validx%CREATURE_TYPES_COUNT]
@@ -4179,27 +4274,37 @@ void process_condition(struct Condition *condt)
         set_flag_byte(&condt->status, 0x01, false);
         return;
     }
-    if (get_players_range(condt->plyr_range, &plr_start, &plr_end) < 0)
+    if ((condt->variabl_type == SVar_SLAB_OWNER) || (condt->variabl_type == SVar_SLAB_TYPE)) //These variable types abuse the plyr_range, since all slabs don't fit in an unsigned short
     {
-        WARNLOG("Invalid player range %d in CONDITION command %d.",(int)condt->plyr_range,(int)condt->variabl_type);
-        return;
+        new_status = false;
+        long k = get_condition_value(condt->plyr_range, condt->variabl_type, condt->variabl_idx);
+        new_status = get_condition_status(condt->operation, k, condt->rvalue);
     }
-    if (condt->variabl_type == SVar_ACTION_POINT_TRIGGERED)
+    else
     {
-        new_status = false;
-        for (i=plr_start; i < plr_end; i++)
+        if (get_players_range(condt->plyr_range, &plr_start, &plr_end) < 0)
         {
-            new_status = action_point_activated_by_player(condt->variabl_idx,i);
-            if (new_status) break;
+            WARNLOG("Invalid player range %d in CONDITION command %d.", (int)condt->plyr_range, (int)condt->variabl_type);
+            return;
         }
-    } else
-    {
-        new_status = false;
-        for (i=plr_start; i < plr_end; i++)
+        if (condt->variabl_type == SVar_ACTION_POINT_TRIGGERED)
         {
-            long k = get_condition_value(i, condt->variabl_type, condt->variabl_idx);
-            new_status = get_condition_status(condt->operation, k, condt->rvalue);
-            if (new_status != false) break;
+            new_status = false;
+            for (i = plr_start; i < plr_end; i++)
+            {
+                new_status = action_point_activated_by_player(condt->variabl_idx, i);
+                if (new_status) break;
+            }
+        }
+        else
+        {
+            new_status = false;
+            for (i = plr_start; i < plr_end; i++)
+            {
+                long k = get_condition_value(i, condt->variabl_type, condt->variabl_idx);
+                new_status = get_condition_status(condt->operation, k, condt->rvalue);
+                if (new_status != false) break;
+            }
         }
     }
     SYNCDBG(19,"Condition type %d status %d",(int)condt->variabl_type,(int)new_status);
@@ -4348,6 +4453,7 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
   struct CreatureStats *crstat;
   struct PlayerInfo *player;
   struct Dungeon *dungeon;
+  struct SlabMap *slb;
   int plr_start;
   int plr_end;
   long i;
@@ -4575,6 +4681,54 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
           player_reveal_map_location(i, val2, val3);
       }
       break;
+  case Cmd_CHANGE_SLAB_OWNER:
+      if (val2 < 0 || val2 > 85)
+      {
+          SCRPTERRLOG("Value '%d' out of range. Range 0-85 allowed.", val2);
+      } else
+      if (val3 < 0 || val3 > 85)
+      {
+          SCRPTERRLOG("Value '%d' out of range. Range 0-85 allowed.", val3);
+      } else
+      {
+          slb = get_slabmap_block(val2, val3);
+          if (slb->room_index)
+          {
+              struct Room* room = room_get(slb->room_index);
+              take_over_room(room, plr_range_id);
+          } else
+          if (slb->kind >= SlbT_WALLDRAPE && slb->kind <= SlbT_CLAIMED) //All slabs that can be owned but aren't rooms
+          {
+              short slbkind;
+              if (slb->kind == SlbT_PATH)
+              {
+                  slbkind = SlbT_CLAIMED;
+              }
+              else
+              {
+                  slbkind = slb->kind;
+              }
+              place_slab_type_on_map(slbkind, slab_subtile(val2, 0), slab_subtile(val3, 0), plr_range_id, 0);
+          }
+      }
+      break;
+  case Cmd_CHANGE_SLAB_TYPE:
+      if (val2 < 0 || val2 > 85)
+      {
+          SCRPTERRLOG("Value '%d' out of range. Range 0-85 allowed.", val2); 
+      } else
+      if (val3 < 0 || val3 > 85)
+      {
+          SCRPTERRLOG("Value '%d' out of range. Range 0-85 allowed.", val3);
+      } else
+      if (val4 < 0 || val4 > 41)
+      {
+          SCRPTERRLOG("Unsupported slab '%d'. Slabs range 0-41 allowed.", val4);
+      } else
+      {
+          replace_slab_from_script(val2, val3, val4);
+      }
+      break;
   case Cmd_KILL_CREATURE:
       for (i=plr_start; i < plr_end; i++)
       {
@@ -4744,6 +4898,40 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       case 13: //ImpWorkExperience
           SCRIPTDBG(7, "Changing rule %d from %d to %d", val2, gameadd.digger_work_experience, val3);
           gameadd.digger_work_experience = val3;
+          break;
+      case 14: //GemEffectiveness
+          SCRIPTDBG(7, "Changing rule %d from %d to %d", val2, gameadd.gem_effectiveness, val3);
+          gameadd.gem_effectiveness = val3;
+          break;
+      case 15: //RoomSellGoldBackPercent
+          SCRIPTDBG(7, "Changing rule %d from %d to %d", val2, gameadd.room_sale_percent, val3);
+          gameadd.room_sale_percent = val3;
+          break;
+      case 16: //PayDayGap
+          SCRIPTDBG(7, "Changing rule %d from %d to %d", val2, game.pay_day_gap, val3);
+          game.pay_day_gap = val3;
+          break;
+      case 17: //PayDaySpeed
+          if (val3 >= 0)
+          {
+              SCRIPTDBG(7, "Changing rule %s from %d to %d", val2, gameadd.pay_day_speed, val3);
+              gameadd.pay_day_speed = val3;
+          }
+          else
+          {
+              SCRPTERRLOG("Rule '%d' value %d out of range", val2, val3);
+          }
+          break;
+      case 18: //PayDayProgress
+          if (val3 >= 0)
+          {
+              SCRIPTDBG(7, "Changing rule %d from %d to %d", val2, game.pay_day_progress, val3);
+              game.pay_day_progress = val3;
+          }
+          else
+          {
+              SCRPTERRLOG("Rule '%d' value %d out of range", val2, val3);
+          }
           break;
       default:
           WARNMSG("Unsupported Game RULE, command %d.", val2);

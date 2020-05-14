@@ -124,6 +124,9 @@ struct GameAdd {
     struct SacrificeRecipe sacrifice_recipes[MAX_SACRIFICE_RECIPES];
     struct LightSystemState lightst;
     long digger_work_experience;
+    unsigned long gem_effectiveness;
+    long room_sale_percent;
+    unsigned long pay_day_speed;
 };
 
 #pragma pack()

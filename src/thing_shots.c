@@ -941,7 +941,7 @@ long shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct Coo
             cctrl->field_B1 = shotst->old->field_24;
         }
     }
-    if (shotst->old->cast_spell_kind != 0)
+    if (shotst->cast_spell_kind != 0)
     {
         struct CreatureControl* cctrl = creature_control_get_from_thing(shooter);
         if (!creature_control_invalid(cctrl)) {
@@ -949,7 +949,7 @@ long shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct Coo
         } else {
             n = 0;
         }
-        apply_spell_effect_to_thing(trgtng, shotst->old->cast_spell_kind, n);
+        apply_spell_effect_to_thing(trgtng, shotst->cast_spell_kind, n);
     }
     if (shotst->model_flags & ShMF_GroupUp)
     {
@@ -976,7 +976,7 @@ long shot_hit_creature_at(struct Thing *shotng, struct Thing *trgtng, struct Coo
         trgtng->state_flags |= TF1_PushAdd;
     }
     create_relevant_effect_for_shot_hitting_thing(shotng, trgtng);
-    if (shotst->old->is_boulder != 0)
+    if (shotst->model_flags & ShMF_Boulder)
     {
         struct CreatureStats* crstat = creature_stats_get_from_thing(trgtng);
         shotng->health -= crstat->damage_to_boulder;
