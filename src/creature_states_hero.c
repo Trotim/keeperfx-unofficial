@@ -25,6 +25,7 @@
 #include "thing_list.h"
 #include "creature_control.h"
 #include "creature_instances.h"
+#include "creature_states_spdig.h"
 #include "creature_jobs.h"
 #include "config_creature.h"
 #include "config_crtrstates.h"
@@ -101,9 +102,86 @@ long good_find_enemy_dungeon(struct Thing *thing)
     return -1;
 }
 
+/**
+ * Checks if given hero has money that should be placed in treasure room.
+ * If he does, he is ordered to return them into nearest treasure room
+ * which has the proper capacity. 
+ * @param thing The hero.
+ * @return Gives 1 if the hero was ordered to go into treasure room, 0 otherwise.
+ */
+long check_out_hero_has_money_for_treasure_room(struct Thing* thing)
+{
+    struct Room* room;
+    SYNCDBG(8, "Starting for %s index %d", thing_model_name(thing), (int)thing->index);
+    //If the hero doesn't have any money - then just return
+    if (thing->creature.gold_carried <= 0) {
+        return 0;
+    }
+    // Find a treasure room to drop the money
+    room = find_nearest_room_for_thing_with_spare_capacity(thing, thing->owner, RoK_TREASURE, NavRtF_Default, 1);
+    if (room_is_invalid(room))
+    {
+        return 0;
+    }
+    if (setup_head_for_empty_treasure_space(thing, room))
+    {
+        thing->continue_state = CrSt_ImpDropsGold; //todo: when more is rewritten, see if there are other states possible here.
+        return 1;
+    }
+    return 0;
+}
+
 TbBool good_setup_wander_to_exit(struct Thing *creatng)
 {
     SYNCDBG(7,"Starting");
+    if (creature_is_dragging_spellbook(creatng))
+    {
+        struct Coord3d pos;
+        struct Room* dstroom = find_nearest_room_for_thing_with_spare_capacity(creatng, creatng->owner, RoK_LIBRARY, NavRtF_Default, 1);
+        if (!(room_is_invalid(dstroom)) && find_random_valid_position_for_thing_in_room_avoiding_object(creatng, dstroom, &pos))
+        {
+            SYNCLOG("Can't find a library for hero %s index %d to place stolen spellbook", thing_model_name(creatng), (int)creatng->index);
+            if (dstroom == get_room_thing_is_on(creatng))
+            {
+                if (dstroom->owner == creatng->owner)
+                {
+                    creature_drops_spell_object_in_library(creatng);
+                    return true;
+                }
+                else 
+                {
+                    if (creature_drop_thing_to_another_room(creatng, dstroom, RoK_LIBRARY))
+                    {
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                if (setup_person_move_to_coord(creatng, &pos, NavRtF_Default))
+                {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            if (creature_drop_thing_to_another_room(creatng, dstroom, RoK_LIBRARY))
+            {
+                return true;
+            }
+        }
+    }
+
+    struct CreatureControl* cctrl = creature_control_get_from_thing(creatng);
+    if ((cctrl->party_objective == CHeroTsk_StealGold) && (creatng->creature.gold_carried > 0))
+    {
+        if (check_out_hero_has_money_for_treasure_room(creatng))
+        {
+            return true;
+        }
+    }
+
     struct Thing* gatetng = find_hero_door_hero_can_navigate_to(creatng);
     if (thing_is_invalid(gatetng))
     {
@@ -754,7 +832,16 @@ short good_doing_nothing(struct Thing *creatng)
             cctrl->party.target_plyr_idx = -1;
         }
     }
-    target_plyr_idx = cctrl->party.target_plyr_idx;
+    if (cctrl->party_objective > CHeroTsk_DefendParty) // Defensive objectives don't need a target
+    {
+        if (good_creature_setup_task_in_dungeon(creatng, target_plyr_idx)) {
+            return 1;
+        }
+    }
+    else
+    {
+        target_plyr_idx = cctrl->party.target_plyr_idx;
+    }
     if (target_plyr_idx == -1)
     {
         nturns = game.play_gameturn - cctrl->long_91;
@@ -835,6 +922,9 @@ short good_leave_through_exit_door(struct Thing *thing)
     thing->creature.gold_carried = 0;
     cctrl->countdown_282 = game.hero_door_wait_time;
     cctrl->byte_8A = tmptng->creation_turn;
+    struct Thing* dragtng = thing_get(cctrl->dragtng_idx);
+    creature_drop_dragged_object(thing, dragtng);
+    destroy_object(dragtng);
     place_thing_in_creature_controlled_limbo(thing);
     internal_set_thing_state(thing, CrSt_GoodWaitInExitDoor);
     return 1;

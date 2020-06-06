@@ -2702,7 +2702,6 @@ short creature_pick_up_spell_to_steal(struct Thing *creatng)
     // Create event to inform player about the spell or special (need to be done before pickup due to ownership changes)
     update_library_object_pickup_event(creatng, picktng);
     creature_drag_object(creatng, picktng);
-    //TODO STEAL_SPELLS Maybe better than CrSt_GoodLeaveThroughExitDoor set continue_state to CrSt_GoodReturnsToStart?
     if (!good_setup_wander_to_exit(creatng)) {
         set_start_state(creatng);
         return 0;
@@ -2744,7 +2743,10 @@ short creature_take_salary(struct Thing *creatng)
     {
         struct CreatureStats* crstat = creature_stats_get_from_thing(creatng);
         struct Thing* efftng = create_price_effect(&creatng->mappos, creatng->owner, salary);
-        anger_apply_anger_to_creature_all_types(creatng, crstat->annoy_got_wage);
+        if (!(gameadd.classic_bugs_flags & ClscBug_FullyHappyWithGold))
+        {
+            anger_apply_anger_to_creature_all_types(creatng, crstat->annoy_got_wage);
+        }
         thing_play_sample(efftng, 32, NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
     }
     dungeon->lvstats.salary_cost += salary;
@@ -4072,6 +4074,7 @@ TbBool cleanup_creature_state_and_interactions(struct Thing *creatng)
     }
     remove_events_thing_is_attached_to(creatng);
     delete_effects_attached_to_creature(creatng);
+    state_cleanup_dragging_object(creatng);
     return true;
 }
 
