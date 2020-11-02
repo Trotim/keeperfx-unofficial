@@ -43,6 +43,7 @@
 #include "power_hand.h"
 #include "room_data.h"
 #include "game_legacy.h"
+#include "keeperfx.hpp"
 
 #ifdef __cplusplus
 extern "C" {
@@ -243,7 +244,7 @@ struct ComputerTask *computer_setup_build_room(struct Computer2 *comp, RoomKind 
             unsigned int look_kind = look_randstart;
             if (look_randstart < 0)
             {
-                look_kind = ACTION_RANDOM(arr_length);
+                look_kind = AI_RANDOM(arr_length);
             }
             for (i=0; i < arr_length; i++)
             {
@@ -642,11 +643,13 @@ long count_diggers_in_dungeon(const struct Dungeon *dungeon)
  */
 long buildable_traps_amount(struct Dungeon *dungeon, ThingModel trmodel)
 {
-    if ((trmodel < 1) || (trmodel >= TRAP_TYPES_COUNT))
+    if ((trmodel < 1) || (trmodel >= trapdoor_conf.trap_types_count))
         return 0;
-    if ((dungeon->trap_build_flags[trmodel] & MnfBldF_Manufacturable) != 0)
+
+    struct DungeonAdd *dungeonadd = get_dungeonadd(dungeon->owner);
+    if ((dungeonadd->mnfct_info.trap_build_flags[trmodel] & MnfBldF_Manufacturable) != 0)
     {
-        return dungeon->trap_amount_stored[trmodel];
+        return dungeonadd->mnfct_info.trap_amount_stored[trmodel];
     }
     return 0;
 }
@@ -703,7 +706,7 @@ long computer_choose_best_trap_kind_to_place(struct Dungeon *dungeon, long allow
     long kinds_multiple = get_number_of_trap_kinds_with_amount_at_least(dungeon, 2);
     if (kinds_multiple > 0) {
         SYNCDBG(18,"Returning one of %d plentiful traps",(int)kinds_multiple);
-        return get_nth_of_trap_kinds_with_amount_at_least(dungeon, 2, ACTION_RANDOM(kinds_multiple));
+        return get_nth_of_trap_kinds_with_amount_at_least(dungeon, 2, AI_RANDOM(kinds_multiple));
     }
     // If there are no multiple traps, and we're not allowing to spend last one
     if (!allow_last)
@@ -714,7 +717,7 @@ long computer_choose_best_trap_kind_to_place(struct Dungeon *dungeon, long allow
     long kinds_single = get_number_of_trap_kinds_with_amount_at_least(dungeon, 1);
     if (kinds_single > 0) {
         SYNCDBG(18,"Returning one of %d single traps",(int)kinds_single);
-        return get_nth_of_trap_kinds_with_amount_at_least(dungeon, 1, ACTION_RANDOM(kinds_single));
+        return get_nth_of_trap_kinds_with_amount_at_least(dungeon, 1, AI_RANDOM(kinds_single));
     }
     return 0;
 }
@@ -730,7 +733,7 @@ int computer_find_more_trap_place_locations(struct Computer2 *comp)
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = comp->dungeon;
     int num_added = 0;
-    RoomKind rkind = ACTION_RANDOM(ROOM_TYPES_COUNT);
+    RoomKind rkind = AI_RANDOM(ROOM_TYPES_COUNT);
     for (int m = 0; m < ROOM_TYPES_COUNT; m++, rkind = (rkind + 1) % ROOM_TYPES_COUNT)
     {
         unsigned long k = 0;
@@ -974,7 +977,7 @@ long computer_check_for_money(struct Computer2 *comp, struct ComputerCheck * che
         }
     }
     // Power hand tasks are exclusive, so select randomly
-    int pwhand_task_choose = ACTION_RANDOM(100);
+    int pwhand_task_choose = AI_RANDOM(100);
     // Cautious selling of traps can be used as base for stable economy.
     // If we were able to use it, do not try to move creatures from their jobs.
     if ((ret == CTaskRet_Unk1) && (pwhand_task_choose < 33)) {
@@ -1447,7 +1450,7 @@ void process_computer_players2(void)
             continue;
         if (((player->allocflags & PlaF_CompCtrl) != 0) || ((dungeon->computer_enabled & 0x01) != 0))
         {
-          if (player->field_2C == 1)
+          if (player->is_active == 1)
           {
 #ifdef PETTER_AI
             SAI_run_for_player(i);
@@ -1495,7 +1498,7 @@ void setup_computer_players2(void)
       struct PlayerInfo* player = get_player(i);
       if (player_exists(player))
       {
-          if (player->field_2C == 1)
+          if (player->is_active == 1)
           {
 #ifdef PETTER_AI
         SAI_init_for_player(i);
@@ -1512,6 +1515,10 @@ void setup_computer_players2(void)
             skirmish_AI_type = 7;
         }
         setup_a_computer_player(i, skirmish_AI_type);
+        if ((gameadd.computer_chat_flags & CChat_TasksScarce) != 0)
+        {
+            message_add_fmt(i, "Ai model %d", skirmish_AI_type);
+        }
         if (i != game.local_plyr_idx)
         {
             JUSTMSG("No model defined for Player %d, assigned computer model %d", i, skirmish_AI_type);
@@ -1538,7 +1545,7 @@ void restore_computer_player_after_load(void)
             comp->dungeon = INVALID_DUNGEON;
             continue;
         }
-        if (player->field_2C != 1)
+        if (player->is_active != 1)
         {
             LbMemorySet(comp, 0, sizeof(struct Computer2));
             comp->dungeon = get_players_dungeon(player);

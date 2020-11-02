@@ -29,6 +29,7 @@
 #include "thing_traps.h"
 #include "thing_stats.h"
 #include "creature_control.h"
+#include "creature_states.h"
 #include "config_creature.h"
 #include "config_effects.h"
 #include "room_data.h"
@@ -536,6 +537,7 @@ long instf_dig(struct Thing *creatng, long *param)
             gold = calculate_gold_digged_out_of_slab_with_single_hit(dig_damage, creatng->owner, cctrl->explevel, slb);
             creatng->creature.gold_carried += gold;
             dungeon->lvstats.gold_mined += gold;
+            EVM_CREATURE_STAT("gold_mined", creatng->owner, creatng, "gold", gold);
         }
         return 0;
     }
@@ -546,6 +548,8 @@ long instf_dig(struct Thing *creatng, long *param)
         gold = calculate_gold_digged_out_of_slab_with_single_hit(slb->health, creatng->owner, cctrl->explevel, slb);
         creatng->creature.gold_carried += gold;
         dungeon->lvstats.gold_mined += gold;
+        EVM_CREATURE_STAT("gold_mined", creatng->owner, creatng, "gold", gold);
+        EVM_MAP_EVENT("dig", creatng->owner, stl_x, stl_y, "gold");
         mine_out_block(stl_x, stl_y, creatng->owner);
         if (dig_has_revealed_area(stl_x, stl_y, creatng->owner))
         {
@@ -559,6 +563,8 @@ long instf_dig(struct Thing *creatng, long *param)
     if (taskkind == SDDigTask_DigEarth)
     {
         dig_out_block(stl_x, stl_y, creatng->owner);
+        EVM_MAP_EVENT("dig", creatng->owner, stl_x, stl_y, "");
+
         if (dig_has_revealed_area(stl_x, stl_y, creatng->owner))
         {
             EventIndex evidx = event_create_event_or_update_nearby_existing_event(
@@ -737,6 +743,7 @@ long instf_pretty_path(struct Thing *creatng, long *param)
     do_slab_efficiency_alteration(slb_x, slb_y);
     increase_dungeon_area(creatng->owner, 1);
     dungeon->lvstats.area_claimed++;
+    EVM_MAP_EVENT("claimed", creatng->owner, slb_x, slb_y, "");
     remove_traps_around_subtile(slab_subtile_center(slb_x), slab_subtile_center(slb_y), NULL);
     return 1;
 }
@@ -800,11 +807,11 @@ long instf_tunnel(struct Thing *creatng, long *param)
         return 0;
     }
     thing_play_sample(creatng, 69+UNSYNC_RANDOM(3), NORMAL_PITCH, 0, 3, 0, 2, FULL_LOUDNESS);
-    if (slb->health > 1) {
-      slb->health--;
-    } else {
-      dig_out_block(stl_x, stl_y, creatng->owner);
-    }
+        if (slb->health > 1) {
+        slb->health--;
+        } else {
+        dig_out_block(stl_x, stl_y, creatng->owner);
+        }
     return 1;
 }
 

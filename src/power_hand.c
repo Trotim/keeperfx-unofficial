@@ -796,8 +796,8 @@ long gold_being_dropped_on_creature(long plyr_idx, struct Thing *goldtng, struct
     if (creature_is_taking_salary_activity(creatng))
     {
         cctrl = creature_control_get_from_thing(creatng);
-        if (cctrl->field_48 > 0)
-            cctrl->field_48--;
+        if (cctrl->paydays_owed > 0)
+            cctrl->paydays_owed--;
         set_start_state(creatng);
         taking_salary = true;
     }
@@ -821,8 +821,8 @@ long gold_being_dropped_on_creature(long plyr_idx, struct Thing *goldtng, struct
     if ( !taking_salary )
     {
         cctrl = creature_control_get_from_thing(creatng);
-        if (cctrl->field_49 < 255) {
-            cctrl->field_49++;
+        if (cctrl->prepayments_received < 255) {
+            cctrl->prepayments_received++;
         }
     }
     struct CreatureStats *crstat;
@@ -1036,7 +1036,7 @@ void process_things_in_dungeon_hand(void)
         player = get_player(plyr_idx);
         struct Dungeon *dungeon;
         dungeon = get_players_dungeon(player);
-        if (player_exists(player) && (player->field_2C == 1) && !dungeon_invalid(dungeon))
+        if (player_exists(player) && (player->is_active == 1) && !dungeon_invalid(dungeon))
         {
             int i;
             for (i = 0; i < dungeon->num_things_in_hand; i++)

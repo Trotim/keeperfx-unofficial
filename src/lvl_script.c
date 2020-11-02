@@ -114,6 +114,7 @@ const struct CommandDesc command_desc[] = {
   {"SET_CREATURE_ARMOUR",               "CN      ", Cmd_SET_CREATURE_ARMOUR},
   {"SET_CREATURE_FEAR_WOUNDED",         "CN      ", Cmd_SET_CREATURE_FEAR_WOUNDED},
   {"SET_CREATURE_FEAR_STRONGER",        "CN      ", Cmd_SET_CREATURE_FEAR_STRONGER},
+  {"SET_CREATURE_FEARSOME_FACTOR",      "CN      ", Cmd_SET_CREATURE_FEARSOME_FACTOR},
   {"SET_CREATURE_PROPERTY",             "CXN     ", Cmd_SET_CREATURE_PROPERTY},
   {"IF_AVAILABLE",                      "PAON    ", Cmd_IF_AVAILABLE},
   {"IF_CONTROLS",                       "PAON    ", Cmd_IF_CONTROLS},
@@ -431,6 +432,7 @@ const struct NamedCommand game_rule_desc[] = {
   {"PayDayGap",               16},
   {"PayDaySpeed",             17},
   {"PayDayProgress",          18},
+  {"PlaceTrapsOnSubtiles",    19},
   {NULL,                      0},
 };
 
@@ -979,7 +981,7 @@ TbBool script_support_setup_player_as_computer_keeper(PlayerNumber plyridx, long
     }
     player->allocflags |= PlaF_Allocated;
     player->id_number = plyridx;
-    player->field_2C = 1;
+    player->is_active = 1;
     player->allocflags |= PlaF_CompCtrl;
     init_player_start(player, false);
     if (!setup_a_computer_player(plyridx, comp_model)) {
@@ -1000,7 +1002,7 @@ TbBool script_support_setup_player_as_zombie_keeper(unsigned short plyridx)
     }
     player->allocflags &= ~PlaF_Allocated; // mark as non-existing
     player->id_number = plyridx;
-    player->field_2C = 0;
+    player->is_active = 0;
     player->allocflags &= ~PlaF_CompCtrl;
     init_player_start(player, false);
     return true;
@@ -1233,6 +1235,11 @@ void command_if(long plr_range_id, const char *varib_name, const char *operatr, 
     {
       varib_id = get_id(door_desc, varib_name);
       varib_type = SVar_DOOR_NUM;
+    }
+    if (varib_id == -1)
+    {
+        varib_id = get_id(trap_desc, varib_name);
+        varib_type = SVar_TRAP_NUM;
     }
     if (varib_id == -1)
     {
@@ -1994,6 +2001,7 @@ void command_set_trap_configuration(const char* trapname, long val1, long val2, 
     case TrpTrg_LineOfSight90:
     case TrpTrg_Pressure:
     case TrpTrg_LineOfSight:
+    case TrpTrg_None:
         validval4 = 1;
         break;
     default:
@@ -2004,8 +2012,10 @@ void command_set_trap_configuration(const char* trapname, long val1, long val2, 
     case TrpAcT_HeadforTarget90:
     case TrpAcT_EffectonTrap:
     case TrpAcT_ShotonTrap:
-    case TrpAcT_SlapChange:
+    case TrpAcT_SlabChange:
     case TrpAcT_CreatureShot:
+    case TrpAcT_CreatureSpawn:
+    case TrpAcT_Power:
         validval5 = 1;
         break;
     default: 
@@ -2014,8 +2024,11 @@ void command_set_trap_configuration(const char* trapname, long val1, long val2, 
     int validval6 = 1;
     if ((val6 <= 0) || 
         ((val6 > magic_conf.shot_types_count) && (val5 == (TrpAcT_HeadforTarget90 || TrpAcT_ShotonTrap || TrpAcT_CreatureShot))) ||
-        ((val6 > slab_conf.slab_types_count ) && (val5 == TrpAcT_SlapChange)) ||
-        ((val6 > effects_conf.effect_types_count) && (val5 == TrpAcT_EffectonTrap)))
+        ((val6 > slab_conf.slab_types_count ) && (val5 == TrpAcT_SlabChange)) ||
+        ((val6 > effects_conf.effect_types_count) && (val5 == TrpAcT_EffectonTrap)) ||
+        ((val6 >= CREATURE_TYPES_COUNT) && (val5 == TrpAcT_CreatureSpawn)) ||
+        ((val6 >= magic_conf.power_types_count) && (val5 == TrpAcT_Power))
+        )
     {
         validval6 = 0;
         SCRPTERRLOG("EffectType '%d' out of range", val6);
@@ -2032,7 +2045,7 @@ void command_set_trap_configuration(const char* trapname, long val1, long val2, 
         struct TrapConfigStats* trapst;
         struct ManfctrConfig* mconf;
         trapst = &trapdoor_conf.trap_cfgstats[trap_id];   
-        mconf = &game.traps_config[trap_id];
+        mconf = &gameadd.traps_config[trap_id];
         SCRIPTDBG(7, "Changing trap %d configuration from (%d,%d,%d,%d,%d,%d,%d)", trap_id, mconf->shots, mconf->shots_delay, trap_stats[trap_id].sprite_anim_idx, trap_stats[trap_id].trigger_type, trap_stats[trap_id].activation_type, trap_stats[trap_id].created_itm_model,trapst->hidden);
         SCRIPTDBG(7, "Changing trap %d configuration to (%d,%d,%d,%d,%d,%d,%d)", trap_id, val1, val2, val3, val4, val5, val6, val7);
         mconf->shots = val1;
@@ -2063,7 +2076,7 @@ void command_set_door_configuration(const char* doorname, long val1, long val2, 
     if (!((val1 < 0) || (val2 < 0) || (val3 < 0) || (val4 < 0)))
     {
         struct ManfctrConfig* mconf;
-        mconf = &game.doors_config[door_id];
+        mconf = &gameadd.doors_config[door_id];
         SCRIPTDBG(7, "Changing door %d configuration from (%d,%d,%d,%d) to (%d,%d,%d,%d)", door_id, mconf->manufct_level, mconf->manufct_required, mconf->selling_value, door_stats[door_id][0].health, val1, val2, val3, val4);
         mconf->manufct_level = val1;
         mconf->manufct_required = val2;
@@ -2259,6 +2272,22 @@ void command_set_creature_fear_stronger(const char *crtr_name, long val)
     return;
   }
   command_add_value(Cmd_SET_CREATURE_FEAR_STRONGER, ALL_PLAYERS, crtr_id, val, 0);
+}
+
+void command_set_creature_fearsome_factor(const char* crtr_name, long val)
+{
+    long crtr_id = get_rid(creature_desc, crtr_name);
+    if (crtr_id == -1)
+    {
+        SCRPTERRLOG("Unknown creature, '%s'", crtr_name);
+        return;
+    }
+    if ((val < 0) || (val > 32767))
+    {
+        SCRPTERRLOG("Invalid '%s' fearsome value, %d", crtr_name, val);
+        return;
+    }
+    command_add_value(Cmd_SET_CREATURE_FEARSOME_FACTOR, ALL_PLAYERS, crtr_id, val, 0);
 }
 
 void command_set_creature_property(const char* crtr_name, long property, short val)
@@ -2731,6 +2760,9 @@ void script_add_command(const struct CommandDesc *cmd_desc, const struct ScriptL
         break;
     case Cmd_SET_CREATURE_FEAR_STRONGER:
         command_set_creature_fear_stronger(scline->tp[0], scline->np[1]);
+        break;
+    case Cmd_SET_CREATURE_FEARSOME_FACTOR:
+        command_set_creature_fearsome_factor(scline->tp[0], scline->np[1]);
         break;
     case Cmd_SET_CREATURE_PROPERTY:
         command_set_creature_property(scline->tp[0], scline->np[1], scline->np[2]);
@@ -4125,6 +4157,7 @@ long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, unsigned 
 {
     SYNCDBG(10,"Checking condition %d for player %d",(int)valtype,(int)plyr_idx);
     struct Dungeon* dungeon;
+    struct DungeonAdd* dungeonadd;
     struct Thing* thing;
     switch (valtype)
     {
@@ -4263,11 +4296,13 @@ long get_condition_value(PlayerNumber plyr_idx, unsigned char valtype, unsigned 
     case SVar_AVAILABLE_MAGIC: // IF_AVAILABLE(MAGIC)
         return is_power_available(plyr_idx, validx);
     case SVar_AVAILABLE_TRAP: // IF_AVAILABLE(TRAP)
-        dungeon = get_dungeon(plyr_idx);
-        return dungeon->trap_amount_stored[validx%TRAP_TYPES_COUNT] + dungeon->trap_amount_offmap[validx%TRAP_TYPES_COUNT];
+        dungeonadd = get_dungeonadd(plyr_idx);
+        return dungeonadd->mnfct_info.trap_amount_stored[validx%trapdoor_conf.trap_types_count]
+              + dungeonadd->mnfct_info.trap_amount_offmap[validx%trapdoor_conf.trap_types_count];
     case SVar_AVAILABLE_DOOR: // IF_AVAILABLE(DOOR)
-        dungeon = get_dungeon(plyr_idx);
-        return dungeon->door_amount_stored[validx%DOOR_TYPES_COUNT] + dungeon->door_amount_offmap[validx%DOOR_TYPES_COUNT];
+        dungeonadd = get_dungeonadd(plyr_idx);
+        return dungeonadd->mnfct_info.door_amount_stored[validx%trapdoor_conf.door_types_count]
+              + dungeonadd->mnfct_info.door_amount_offmap[validx%trapdoor_conf.door_types_count];
     case SVar_AVAILABLE_ROOM: // IF_AVAILABLE(ROOM)
         dungeon = get_dungeon(plyr_idx);
         return dungeon->room_buildable[validx%ROOM_TYPES_COUNT];
@@ -4710,6 +4745,13 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
       if (creature_stats_invalid(crstat))
           break;
       crstat->fear_stronger = saturate_set_unsigned(val3, 16);
+      creature_stats_updated(val2);
+      break;
+  case Cmd_SET_CREATURE_FEARSOME_FACTOR:
+      crstat = creature_stats_get(val2);
+      if (creature_stats_invalid(crstat))
+          break;
+      crstat->fearsome_factor = saturate_set_unsigned(val3, 16);
       creature_stats_updated(val2);
       break;
   case Cmd_SET_CREATURE_PROPERTY:
@@ -5220,6 +5262,10 @@ void script_process_value(unsigned long var_index, unsigned long plr_range_id, l
           {
               SCRPTERRLOG("Rule '%d' value %d out of range", val2, val3);
           }
+          break;
+    case 19: //PlaceTrapsOnSubtiles
+          SCRIPTDBG(7, "Changing rule %d from %d to %d", val2, gameadd.place_traps_on_subtiles, val3);
+          gameadd.place_traps_on_subtiles = (TbBool)val3;
           break;
       default:
           WARNMSG("Unsupported Game RULE, command %d.", val2);

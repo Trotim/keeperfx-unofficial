@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 #include "globals.h"
 #include "bflib_mouse.h"
 
@@ -95,7 +95,6 @@ short LbIKeyboardClose(void)
 short LbIKeyboardOpen(void)
 {
     prepare_keys_mapping();
-    SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
     return 1;
 }
 
@@ -113,7 +112,7 @@ short LbKeyCodeValid(TbKeyCode key)
   return true;
 }
 
-void keyboardControl(unsigned int action, TbKeyCode code, TbKeyMods modifiers)
+void keyboardControl(unsigned int action, TbKeyCode code, TbKeyMods modifiers, int ScanCode)
 {
     // Set the key code action value
     switch ( action )
@@ -174,7 +173,7 @@ void keyboardControl(unsigned int action, TbKeyCode code, TbKeyMods modifiers)
     {
         if (lbIInkey == 0)
         {
-            lbIInkey = lbInkey;
+            lbIInkey = ScanCode;
             lbIInkeyFlags = lbInkeyFlags;
         }
     }

@@ -142,7 +142,7 @@ long computer_checks_hates(struct Computer2 *comp, struct ComputerCheck * check)
         if (!player_exists(player) || (player->id_number == compdngn->owner)
          || (player->id_number == game.neutral_player_num))
             continue;
-        if (player->field_2C != 1)
+        if (player->is_active != 1)
             continue;
         if (players_are_mutual_allies(compdngn->owner, i))
             continue;
@@ -929,9 +929,10 @@ long computer_check_for_place_door(struct Computer2 *comp, struct ComputerCheck 
 {
     SYNCDBG(8,"Starting");
     struct Dungeon* dungeon = comp->dungeon;
-    for (ThingModel doorkind = DOOR_TYPES_COUNT; doorkind > 1; doorkind--)
+    struct DungeonAdd* dungeonadd = get_dungeonadd(dungeon->owner);
+    for (ThingModel doorkind = trapdoor_conf.door_types_count; doorkind > 1; doorkind--)
     {
-        if (dungeon->door_amount_stored[doorkind] <= 0) {
+        if (dungeonadd->mnfct_info.door_amount_stored[doorkind] <= 0) {
             continue;
         }
         long rkind = check->param1;

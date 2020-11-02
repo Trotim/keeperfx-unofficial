@@ -1353,7 +1353,7 @@ void dump_slab_on_map(SlabKind slbkind, long slabct_num, MapSubtlCoord stl_x, Ma
     slb = get_slabmap_block(slb_x, slb_y);
     slb->kind = slbkind;
     pannel_map_update(stl_xa, stl_ya, STL_PER_SLB, STL_PER_SLB);
-    if ((slbkind == SlbT_GUARDPOST) || (slbkind == SlbT_BRIDGE))
+    if ((slbkind == SlbT_GUARDPOST) || (slbkind == SlbT_BRIDGE) || (slbkind == SlbT_GEMS))
     {
         MapSubtlCoord stl_xb;
         MapSubtlCoord stl_yb;
@@ -1380,6 +1380,11 @@ void place_animating_slab_type_on_map(SlabKind slbkind, char ani_frame, MapSubtl
         ERRORLOG("Attempt to dump an invalid animating slab: %d", (int)slbkind);
         dump_slab_on_map(SlbT_LAVA, 0, stl_x, stl_y, game.neutral_player_num);
         return;
+    }
+    struct SlabMap *slbmap = get_slabmap_block(slb_x, slb_y);
+    if (slbmap->kind != SlbT_GEMS)
+    {
+        all_players_untag_blocks_for_digging_in_area(slb_x, slb_y);
     }
     delete_attached_things_on_slab(slb_x, slb_y);
     dump_slab_on_map(slbkind, 840 + 8 * slbkind + ani_frame, stl_x, stl_y, owner);
@@ -1409,6 +1414,10 @@ void place_animating_slab_type_on_map(SlabKind slbkind, char ani_frame, MapSubtl
                 set_alt_bit_based_on_slab(slb->kind, sstl_x, sstl_y);
             }
         }
+    }
+    if (slbkind == SlbT_GEMS)
+    {
+        delete_all_object_things_from_slab(slb_x, slb_y, 0);
     }
 }
 
@@ -1488,6 +1497,27 @@ void place_slab_type_on_map_f(SlabKind nslab, MapSubtlCoord stl_x, MapSubtlCoord
 
     skind = alter_rock_style(nslab, slb_x, slb_y, owner);
     slb = get_slabmap_block(slb_x,slb_y);
+    if ( (slb->kind >= SlbT_WALLDRAPE) && (slb->kind <= SlbT_WALLPAIRSHR) )
+    {
+        if ( (skind < SlbT_WALLDRAPE) || (skind > SlbT_WALLPAIRSHR) )
+        {
+            all_players_untag_blocks_for_digging_in_area(slb_x, slb_y);
+        }
+    }
+    else if ( (slb->kind == SlbT_EARTH) || (slb->kind == SlbT_TORCHDIRT) )
+    {
+        if ( (skind != SlbT_EARTH) && (skind != SlbT_TORCHDIRT) )
+        {
+            all_players_untag_blocks_for_digging_in_area(slb_x, slb_y);
+        }
+    }
+    else
+    {
+        if (slb->kind != skind)
+        {
+            all_players_untag_blocks_for_digging_in_area(slb_x, slb_y);
+        }
+    }
     slb->kind = skind;
 
     set_whole_slab_owner(slb_x, slb_y, owner);
@@ -2287,6 +2317,7 @@ void place_and_process_pretty_wall_slab(struct Thing *creatng, MapSlabCoord slb_
     unsigned char pretty_type;
     pretty_type = choose_pretty_type(creatng->owner, slb_x, slb_y);
     place_slab_type_on_map(pretty_type, slab_subtile_center(slb_x), slab_subtile_center(slb_y), creatng->owner, 0);
+    EVM_MAP_EVENT("reinforced", creatng->owner, slb_x, slb_y, "");
     do_slab_efficiency_alteration(slb_x, slb_y);
     MapSubtlCoord wrkstl_x;
     MapSubtlCoord wrkstl_y;

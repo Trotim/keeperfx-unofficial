@@ -60,7 +60,7 @@ enum TbPacketAction {
         PckA_Unknown030,//30
         PckA_Unknown031,
         PckA_PasngrCtrlExit,
-        PckA_Unknown033,
+        PckA_DirectCtrlExit,
         PckA_Unknown034,
         PckA_Unknown035,//35
         PckA_SetPlyrState,
@@ -149,6 +149,7 @@ enum TbPacketAction {
         PckA_SaveViewType,
         PckA_LoadViewType,//120
         PckA_PlyrMsgChar    =  121,
+        PckA_PlyrMsgClear
 };
 
 /** Packet flags for non-action player operation. */
@@ -258,6 +259,8 @@ TbBool open_packet_file_for_load(char *fname, struct CatalogueEntry *centry);
 short save_packets(void);
 void close_packet_file(void);
 TbBool reinit_packets_after_load(void);
+struct Room *keeper_build_room(long stl_x,long stl_y,long plyr_idx,long rkind);
+TbBool player_sell_room_at_subtile(long plyr_idx, long stl_x, long stl_y);
 /******************************************************************************/
 #ifdef __cplusplus
 }

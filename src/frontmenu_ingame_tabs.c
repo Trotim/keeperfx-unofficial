@@ -450,8 +450,15 @@ void gui_area_big_room_button(struct GuiButton *gbtn)
 
     struct RoomStats* rstat = room_stats_get_for_kind(rkind);
     //game.chosen_room_kind
-    sprintf(gui_textbuf, "%ld", (long)rstat->cost);
-    if (rstat->cost <= dungeon->total_money_owned)
+    if (player->boxsize > 1)
+    {
+        sprintf(gui_textbuf, "%ld", (long)rstat->cost * player->boxsize);
+    }
+    else
+    {
+        sprintf(gui_textbuf, "%ld", (long)rstat->cost);
+    }
+    if (rstat->cost * player->boxsize <= dungeon->total_money_owned)
     {
         if ((player->work_state == PSt_BuildRoom) && (player->chosen_room_kind == game.chosen_room_kind)
           && ((game.play_gameturn & 1) == 0))
@@ -817,6 +824,7 @@ void gui_area_trap_button(struct GuiButton *gbtn)
         return;
     }
     struct Dungeon* dungeon = get_players_num_dungeon(my_player_number);
+    struct DungeonAdd* dungeonadd = get_dungeonadd(dungeon->owner);
     // Check how many traps/doors do we have to place
     unsigned int amount;
     switch (manufctr->tngclass)
@@ -826,14 +834,14 @@ void gui_area_trap_button(struct GuiButton *gbtn)
         if (player_has_deployed_trap_of_model(my_player_number, manufctr->tngmodel)) {
             draw_gui_panel_sprite_left(gbtn->scr_pos_x, gbtn->scr_pos_y, ps_units_per_px, 27);
         }
-        amount = dungeon->trap_amount_placeable[manufctr->tngmodel];
+        amount = dungeonadd->mnfct_info.trap_amount_placeable[manufctr->tngmodel];
         break;
     case TCls_Door:
         // If there are doors of that type placed on map
         if (player_has_deployed_door_of_model(my_player_number, manufctr->tngmodel, -1)) {
             draw_gui_panel_sprite_left(gbtn->scr_pos_x, gbtn->scr_pos_y, ps_units_per_px, 27);
         }
-        amount = dungeon->door_amount_placeable[manufctr->tngmodel];
+        amount = dungeonadd->mnfct_info.door_amount_placeable[manufctr->tngmodel];
         break;
     default:
         amount = 0;
@@ -883,6 +891,7 @@ void gui_area_big_trap_button(struct GuiButton *gbtn)
     struct PlayerInfo* player = get_my_player();
 
     struct Dungeon* dungeon = get_players_dungeon(player);
+    struct DungeonAdd* dungeonadd = get_dungeonadd(dungeon->owner);
     struct ManufactureData* manufctr = get_manufacture_data(manufctr_idx);
     unsigned short flg_mem = lbDisplay.DrawFlags;
     int units_per_px = (gbtn->width * 16 + 126 / 2) / 126;
@@ -898,10 +907,10 @@ void gui_area_big_trap_button(struct GuiButton *gbtn)
     switch (manufctr->tngclass)
     {
     case TCls_Trap:
-        amount = dungeon->trap_amount_placeable[manufctr->tngmodel];
+        amount = dungeonadd->mnfct_info.trap_amount_placeable[manufctr->tngmodel];
         break;
     case TCls_Door:
-        amount = dungeon->door_amount_placeable[manufctr->tngmodel];
+        amount = dungeonadd->mnfct_info.door_amount_placeable[manufctr->tngmodel];
         break;
     default:
         amount = 0;
@@ -1205,18 +1214,23 @@ void gui_go_to_next_creature_activity(struct GuiButton *gbtn)
 
 RoomIndex find_my_next_room_of_type(RoomKind rkind)
 {
+    return find_next_room_of_type(my_player_number, rkind);
+}
+
+RoomIndex find_next_room_of_type(PlayerNumber plyr_idx, RoomKind rkind)
+{
     static RoomIndex next_room[ROOM_TYPES_COUNT];
     if (next_room[rkind] > 0)
     {
         struct Room* room = room_get(next_room[rkind]);
-        if (room_exists(room) && (room->owner == my_player_number) && (room->kind == rkind))
+        if (room_exists(room) && (room->owner == plyr_idx) && (room->kind == rkind))
           next_room[rkind] = room->next_of_owner;
         else
           next_room[rkind] = 0;
     }
     if (next_room[rkind] <= 0)
     {
-        struct Dungeon* dungeon = get_my_dungeon();
+        struct Dungeon* dungeon = get_dungeon(plyr_idx);
         next_room[rkind] = dungeon->room_kind[rkind];
     }
     return next_room[rkind];
@@ -1769,7 +1783,9 @@ void maintain_event_button(struct GuiButton *gbtn)
     if ((dungeon->visible_event_idx != 0) && (evidx == dungeon->visible_event_idx))
     {
         turn_on_event_info_panel_if_necessary(dungeon->visible_event_idx);
-        if (is_game_key_pressed(Gkey_ToggleMessage, &keycode, false))
+        //TODO: that should be not here, Keys should be processed at one place
+        if (is_game_key_pressed(Gkey_ToggleMessage, &keycode, false)
+            && ((get_player(my_player_number)->allocflags & PlaF_NewMPMessage) == 0))
         {
             gui_kill_event(gbtn);
             clear_key_pressed(keycode);
@@ -1779,7 +1795,8 @@ void maintain_event_button(struct GuiButton *gbtn)
     {
         if (dungeon->visible_event_idx == 0)
         {
-            if (is_game_key_pressed(Gkey_ToggleMessage, &keycode, false))
+            if (is_game_key_pressed(Gkey_ToggleMessage, &keycode, false)
+                && ((get_player(my_player_number)->allocflags & PlaF_NewMPMessage) == 0))
             {
                 int i = EVENT_BUTTONS_COUNT;
                 for (i=EVENT_BUTTONS_COUNT; i > 0; i--)

@@ -142,7 +142,7 @@ struct Wander // sizeof = 424
 struct PlayerInfo {
     unsigned char allocflags;
     unsigned char field_1;
-    unsigned char field_2; //seems to be never used
+    unsigned char boxsize; //field_2 seems to be used in DK, so now renamed and used in KeeperFX
     unsigned char field_3;
     unsigned char input_crtr_control;
     unsigned char input_crtr_query;
@@ -157,7 +157,7 @@ unsigned char field_14;
     unsigned char victory_state;
     unsigned char allied_players;
     unsigned char id_number;
-    unsigned char field_2C;
+    unsigned char is_active;
     unsigned char field_2D[2];
     short controlled_thing_idx;
     long controlled_thing_creatrn;

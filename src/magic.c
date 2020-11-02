@@ -33,6 +33,7 @@
 #include "game_merge.h"
 #include "power_specials.h"
 #include "power_hand.h"
+#include "thing_creature.h"
 #include "thing_objects.h"
 #include "thing_effects.h"
 #include "thing_stats.h"
@@ -89,8 +90,11 @@ unsigned char destroy_effect[][9] = {
  */
 TbBool can_cast_spell_f(PlayerNumber plyr_idx, PowerKind pwkind, MapSubtlCoord stl_x, MapSubtlCoord stl_y, const struct Thing *thing, unsigned long flags, const char *func_name)
 {
-    if (!is_power_available(plyr_idx, pwkind)) {
-        return false;
+    if ((flags & CastChk_SkipAvailiabilty) == 0)
+    {
+        if (!is_power_available(plyr_idx, pwkind)) {
+            return false;
+        }
     }
     struct PlayerInfo* player = get_player(plyr_idx);
     if (player->work_state == PSt_FreeCtrlDirect)
@@ -1211,6 +1215,7 @@ TbResult magic_use_power_imp(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubt
         ERRORLOG("There was place to create new creature, but creation failed");
         return Lb_OK;
     }
+    EVM_CREATURE_EVENT("joined", plyr_idx, thing);
     thing->veloc_push_add.x.val += ACTION_RANDOM(161) - 80;
     thing->veloc_push_add.y.val += ACTION_RANDOM(161) - 80;
     thing->veloc_push_add.z.val += 160;
@@ -1673,6 +1678,7 @@ TbResult magic_use_power_slap_thing(PlayerNumber plyr_idx, struct Thing *thing, 
     if ((player->instance_num == PI_Whip) || (game.play_gameturn - dungeon->last_creature_dropped_gameturn <= 10)) {
         return Lb_OK;
     }
+    EVM_CREATURE_EVENT("slap", plyr_idx, thing);
     player->influenced_thing_idx = thing->index;
     player->influenced_thing_creation = thing->creation_turn;
     set_player_instance(player, PI_Whip, 0);
@@ -1703,6 +1709,8 @@ TbResult magic_use_power_possess_thing(PlayerNumber plyr_idx, struct Thing *thin
     }
     player = get_player(plyr_idx);
     player->influenced_thing_idx = thing->index;
+    teleport_destination = 18;
+    battleid = 1;
     // Note that setting Direct Control player instance requires player->influenced_thing_idx to be set correctly
     set_player_instance(player, PI_DirctCtrl, 0);
     return Lb_SUCCESS;
@@ -1909,15 +1917,38 @@ void process_dungeon_power_magic(void)
  * @param stl_y The casting subtile, Y coord.
  */
 TbResult magic_use_available_power_on_thing(PlayerNumber plyr_idx, PowerKind pwkind,
-    unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing)
+    unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, unsigned long allow_flags)
 {
     TbResult ret;
-    ret = Lb_OK;
     if (!is_power_available(plyr_idx, pwkind)) {
         // It shouldn't be possible to select unavailable spell
         WARNLOG("Player %d tried to cast %s which is unavailable",(int)plyr_idx,power_code_name(pwkind));
         ret = Lb_FAIL;
     }
+    ret = magic_use_power_on_thing(plyr_idx, pwkind, splevel, stl_x, stl_y, thing, allow_flags);
+    if (ret == Lb_FAIL) {
+        // Make a rejection sound
+        if (is_my_player_number(plyr_idx))
+            play_non_3d_sample(119);
+    }
+    return ret;
+}
+
+/**
+ * Unified function for using powers which are castable on things. Without checks for availiability
+ *
+ * @param plyr_idx The casting player.
+ * @param spl_idx Power kind to be casted.
+ * @param splevel Power overcharge level.
+ * @param thing The target thing.
+ * @param stl_x The casting subtile, X coord.
+ * @param stl_y The casting subtile, Y coord.
+ */
+TbResult magic_use_power_on_thing(PlayerNumber plyr_idx, PowerKind pwkind,
+    unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, struct Thing *thing, unsigned long allow_flags)
+{
+    TbResult ret;
+    ret = Lb_OK;
     if (!thing_exists(thing)) {
         WARNLOG("Player %d tried to cast %s on non-existing thing",(int)plyr_idx,power_code_name(pwkind));
         ret = Lb_FAIL;
@@ -1933,7 +1964,7 @@ TbResult magic_use_available_power_on_thing(PlayerNumber plyr_idx, PowerKind pwk
     }
     if (ret == Lb_OK)
     {
-        if (!can_cast_spell(plyr_idx, pwkind, stl_x, stl_y, thing, CastChk_Final)) {
+        if (!can_cast_spell(plyr_idx, pwkind, stl_x, stl_y, thing, CastChk_Final | CastChk_SkipAvailiabilty)) {
             ret = Lb_FAIL;
         }
     }
@@ -1959,45 +1990,40 @@ TbResult magic_use_available_power_on_thing(PlayerNumber plyr_idx, PowerKind pwk
                 ret = Lb_FAIL;
             break;
         case PwrK_HEALCRTR:
-            ret = magic_use_power_heal(plyr_idx, thing, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_heal(plyr_idx, thing, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_SPEEDCRTR:
-            ret = magic_use_power_speed(plyr_idx, thing, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_speed(plyr_idx, thing, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_PROTECT:
-            ret = magic_use_power_armour(plyr_idx, thing, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_armour(plyr_idx, thing, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_CONCEAL:
-            ret = magic_use_power_conceal(plyr_idx, thing, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_conceal(plyr_idx, thing, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_DISEASE:
-            ret = magic_use_power_disease(plyr_idx, thing, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_disease(plyr_idx, thing, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_CHICKEN:
-            ret = magic_use_power_chicken(plyr_idx, thing, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_chicken(plyr_idx, thing, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_SLAP:
-            ret = magic_use_power_slap_thing(plyr_idx, thing, PwMod_Default);
+            ret = magic_use_power_slap_thing(plyr_idx, thing, allow_flags);
             break;
         case PwrK_POSSESS:
-            ret = magic_use_power_possess_thing(plyr_idx, thing, PwMod_Default);
+            ret = magic_use_power_possess_thing(plyr_idx, thing, allow_flags);
             break;
         case PwrK_CALL2ARMS:
-            ret = magic_use_power_call_to_arms(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_call_to_arms(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_LIGHTNING:
-            ret = magic_use_power_lightning(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_lightning(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         default:
             ERRORLOG("Power not supported here: %d", (int)pwkind);
             ret = Lb_FAIL;
             break;
         }
-    }
-    if (ret == Lb_FAIL) {
-        // Make a rejection sound
-        if (is_my_player_number(plyr_idx))
-            play_non_3d_sample(119);
     }
     return ret;
 }
@@ -2025,15 +2051,30 @@ TbResult magic_use_available_power_on_subtile(PlayerNumber plyr_idx, PowerKind p
     }
     if (ret == Lb_OK)
     {
-        TbBool cast_at_xy;
-        cast_at_xy = can_cast_power_at_xy(plyr_idx, pwkind, stl_x, stl_y, allow_flags);
-        // Fail if the function has failed
-        if (!cast_at_xy) {
-            WARNLOG("Player %d tried to cast %s on %s which can't be targeted",
-                (int)plyr_idx,power_code_name(pwkind),"a subtile");
-            ret = Lb_FAIL;
-        }
+        ret = magic_use_power_on_subtile(plyr_idx, pwkind, splevel, stl_x, stl_y, allow_flags);
     }
+    if (ret == Lb_FAIL) {
+        // Make a rejection sound
+        if (is_my_player_number(plyr_idx))
+            play_non_3d_sample(119);
+    }
+    return ret;
+}
+
+TbResult magic_use_power_on_subtile(PlayerNumber plyr_idx, PowerKind pwkind,
+    unsigned short splevel, MapSubtlCoord stl_x, MapSubtlCoord stl_y, unsigned long allow_flags)
+{
+    TbResult ret;
+    ret = Lb_OK;
+    TbBool cast_at_xy;
+    cast_at_xy = can_cast_power_at_xy(plyr_idx, pwkind, stl_x, stl_y, allow_flags);
+    // Fail if the function has failed
+    if (!cast_at_xy) {
+        WARNLOG("Player %d tried to cast %s on %s which can't be targeted",
+            (int)plyr_idx,power_code_name(pwkind),"a subtile");
+        ret = Lb_FAIL;
+    }
+
     if (ret == Lb_OK)
     {
         if (splevel > MAGIC_OVERCHARGE_LEVELS) {
@@ -2047,36 +2088,31 @@ TbResult magic_use_available_power_on_subtile(PlayerNumber plyr_idx, PowerKind p
         switch (pwkind)
         {
         case PwrK_MKDIGGER:
-            ret = magic_use_power_imp(plyr_idx, stl_x, stl_y, PwMod_Default);
+            ret = magic_use_power_imp(plyr_idx, stl_x, stl_y, allow_flags);
             break;
         case PwrK_SIGHT:
-            ret = magic_use_power_sight(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_sight(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_CALL2ARMS:
-            ret = magic_use_power_call_to_arms(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_call_to_arms(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_CAVEIN:
-            ret = magic_use_power_cave_in(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_cave_in(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_LIGHTNING:
-            ret = magic_use_power_lightning(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_lightning(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_DESTRWALLS:
-            ret = magic_use_power_destroy_walls(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_destroy_walls(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         case PwrK_TIMEBOMB:
-            ret = magic_use_power_time_bomb(plyr_idx, stl_x, stl_y, splevel, PwMod_Default);
+            ret = magic_use_power_time_bomb(plyr_idx, stl_x, stl_y, splevel, allow_flags);
             break;
         default:
             ERRORLOG("Power not supported here: %d", (int)pwkind);
             ret = Lb_FAIL;
             break;
         }
-    }
-    if (ret == Lb_FAIL) {
-        // Make a rejection sound
-        if (is_my_player_number(plyr_idx))
-            play_non_3d_sample(119);
     }
     return ret;
 }
@@ -2090,24 +2126,30 @@ TbResult magic_use_available_power_on_subtile(PlayerNumber plyr_idx, PowerKind p
  * @return
  */
 TbResult magic_use_available_power_on_level(PlayerNumber plyr_idx, PowerKind spl_idx,
-    unsigned short splevel)
+    unsigned short splevel, unsigned long allow_flags)
 {
     if (!is_power_available(plyr_idx, spl_idx)) {
         // It shouldn't be possible to select unavailable spell
         WARNLOG("Player %d tried to cast unavailable spell %d",(int)plyr_idx,(int)spl_idx);
         return Lb_FAIL;
     }
+    return magic_use_power_on_level(plyr_idx, spl_idx, splevel, allow_flags);
+}
+
+TbResult magic_use_power_on_level(PlayerNumber plyr_idx, PowerKind spl_idx,
+    unsigned short splevel, unsigned long allow_flags)
+{
     if (splevel > MAGIC_OVERCHARGE_LEVELS) {
         splevel = MAGIC_OVERCHARGE_LEVELS;
     }
     switch (spl_idx)
     {
     case PwrK_OBEY:
-        return magic_use_power_obey(plyr_idx, PwMod_Default);
+        return magic_use_power_obey(plyr_idx, allow_flags);
     case PwrK_HOLDAUDNC:
-        return magic_use_power_hold_audience(plyr_idx, PwMod_Default);
+        return magic_use_power_hold_audience(plyr_idx, allow_flags);
     case PwrK_ARMAGEDDON:
-        return magic_use_power_armageddon(plyr_idx, PwMod_Default);
+        return magic_use_power_armageddon(plyr_idx, allow_flags);
     default:
         ERRORLOG("Power not supported here: %d", (int)spl_idx);
         break;
@@ -2120,7 +2162,7 @@ void directly_cast_spell_on_thing(PlayerNumber plyr_idx, PowerKind spl_idx, Thin
     struct Thing *thing;
     thing = thing_get(thing_idx);
     magic_use_available_power_on_thing(plyr_idx, spl_idx, splevel,
-        thing->mappos.x.stl.num, thing->mappos.y.stl.num, thing);
+        thing->mappos.x.stl.num, thing->mappos.y.stl.num, thing, PwMod_Default);
 }
 
 int get_power_overcharge_level(struct PlayerInfo *player)

@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "bflib_basics.h"
+#include "config_terrain.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,9 +134,16 @@ long calculate_effeciency_score_for_room_slab(SlabCodedCoords slab_num, PlayerNu
 TbBool slab_is_safe_land(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
 TbBool slab_is_door(MapSlabCoord slb_x, MapSlabCoord slb_y);
 TbBool slab_is_liquid(MapSlabCoord slb_x, MapSlabCoord slb_y);
+TbBool slab_is_wall(MapSlabCoord slb_x, MapSlabCoord slb_y);
 
 TbBool can_build_room_at_slab(PlayerNumber plyr_idx, RoomKind rkind,
     MapSlabCoord slb_x, MapSlabCoord slb_y);
+
+TbBool can_build_room_at_slab_fast(PlayerNumber plyr_idx, RoomKind rkind,
+    MapSlabCoord slb_x, MapSlabCoord slb_y);
+
+int check_room_at_slab_loose(PlayerNumber plyr_idx, RoomKind rkind,
+    MapSlabCoord slb_x, MapSlabCoord slb_y, int looseness);
 
 void clear_slabs(void);
 void reveal_whole_map(struct PlayerInfo *player);
@@ -146,6 +154,8 @@ void copy_block_with_cube_groups(short itm_idx, MapSubtlCoord stl_x, MapSubtlCoo
 void do_slab_efficiency_alteration(MapSlabCoord slb_x, MapSlabCoord slb_y);
 void do_unprettying(PlayerNumber plyr_idx, MapSlabCoord slb_x, MapSlabCoord slb_y);
 
+/******************************************************************************/
+#include "roomspace.h"
 /******************************************************************************/
 #ifdef __cplusplus
 }

@@ -53,6 +53,9 @@
 extern "C" {
 #endif
 
+// Max length of the command line
+#define CMDLN_MAXLEN 259
+
 #define LEGAL_WIDTH  640
 #define LEGAL_HEIGHT 480
 
@@ -90,6 +93,15 @@ enum DebugFlags {
     DFlg_CreatrPaths        =  0x02,
 };
 
+#ifdef AUTOTESTING
+enum AutotestFlags {
+    ATF_ExitOnTurn          = 0x01, // Exit from a game after some time
+    ATF_FixedSeed           = 0x02, // Set randomseed to 1 on game start
+    ATF_AI_Player           = 0x04, // Activate Ai player on level start
+    ATF_TestsCampaign       = 0x08  // Switch to testing levels
+};
+#endif
+
 #pragma pack(1)
 
 struct TbLoadFiles;
@@ -120,6 +132,12 @@ struct StartupParameters {
     char packet_fname[150];
     unsigned char packet_checksum_verify;
     unsigned char force_ppro_poly;
+    int frame_skip;
+    char selected_campaign[CMDLN_MAXLEN+1];
+#ifdef AUTOTESTING
+    unsigned char autotest_flags;
+    unsigned long autotest_exit_turn;
+#endif
 };
 
 // Global variables migration between DLL and the program
@@ -240,10 +258,10 @@ void update(void);
 
 int can_thing_be_queried(struct Thing *thing, long a2);
 struct Thing *get_queryable_object_near(MapCoord pos_x, MapCoord pos_y, long plyr_idx);
-void tag_cursor_blocks_sell_area(unsigned char a1, long a2, long a3, long a4);
+TbBool tag_cursor_blocks_sell_area(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, long a4, TbBool single_subtile);
 long packet_place_door(MapSubtlCoord stl_x, MapSubtlCoord stl_y, PlayerNumber plyr_idx, ThingModel dormodel, unsigned char a5);
-unsigned char tag_cursor_blocks_place_door(unsigned char a1, long a2, long a3);
 TbBool tag_cursor_blocks_place_room(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y, long a4);
+TbBool tag_cursor_blocks_place_door(PlayerNumber plyr_idx, MapSubtlCoord stl_x, MapSubtlCoord stl_y);
 TbBool all_dungeons_destroyed(const struct PlayerInfo *win_player);
 void reset_gui_based_on_player_mode(void);
 void reinit_tagged_blocks_for_player(PlayerNumber plyr_idx);
@@ -333,6 +351,7 @@ void give_shooter_drained_health(struct Thing *shooter, long health_delta);
 long get_foot_creature_has_down(struct Thing *thing);
 void process_keeper_spell_effect(struct Thing *thing);
 TbBool setup_move_off_lava(struct Thing *thing);
+TbBool setup_move_out_of_cave_in(struct Thing *thing);
 
 TbPixel get_player_path_colour(unsigned short owner);
 

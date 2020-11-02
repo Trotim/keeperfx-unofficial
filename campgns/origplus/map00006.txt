@@ -6,7 +6,7 @@ REM  Campaign: New game plus
 REM  Authors:  based on Bullfrog script
 REM            KeeperFX CCP Team
 REM            Loobinex
-REM  Date:     17 Dec 1996 - 14 Mar 2015
+REM  Date:     17 Dec 1996 - 11 Jul 2020
 REM  Copying and copyrights:
 REM    This program is free software; you can redistribute it and/or modify
 REM    it under the terms of the GNU General Public License as published by
@@ -95,6 +95,14 @@ ENDIF
 
 IF(PLAYER1,PRISON >= 9)
 	SET_CREATURE_TENDENCIES(PLAYER1,IMPRISON,1)
+ENDIF
+
+IF(PLAYER_GOOD,FAIRY >= 1)
+	IF(PLAYER0,TORTURE <= 0)
+		IF(PLAYER0,DARK_MISTRESS >= 1)
+			ADD_CREATURE_TO_LEVEL(PLAYER1,DARK_MISTRESS,PLAYER1,3,6,0)
+		ENDIF
+	ENDIF
 ENDIF
 
 IF(PLAYER1,DUNGEON_DESTROYED == 1)
